@@ -37,13 +37,13 @@ jobs:
         run: npm run neu-build
 
       - name: Copy build
-        run: Copy-Item -Path .\dist\ola\resources.neu -Destination ~\resources.neu
+        run: Copy-Item -Path ./dist/ola/resources.neu -Destination ~/resources.neu
 
       - name: Add icon to win exe
         run: |
-          Expand-Archive -Path .\dist\ola-release.zip -DestinationPath .\release
-          .\rcedit-x64.exe .\release\ola-win_x64.exe --set-icon .\public\favicon.ico
-          Compress-Archive -Path .\release -DestinationPath .\dist\ola-release.zip -Force
+          Expand-Archive -Path ./dist/ola-release.zip -DestinationPath ./release
+          .\rcedit-x64.exe ./release/ola-win_x64.exe --set-icon ./public/favicon.ico
+          Compress-Archive -Path ./release -DestinationPath ./dist/ola-release.zip -Force
 
       - name: Release
         uses: softprops/action-gh-release@v1
