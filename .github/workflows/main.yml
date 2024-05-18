@@ -27,7 +27,7 @@ jobs:
       - name: Sync versions
         run: npm run sync-version
 
-      - name: Generate dict
+      - name: Generate build
         run: npm run build
 
       - name: Generate release
@@ -37,6 +37,7 @@ jobs:
         run: |
           Get-ChildItem -Path ./dist -Recurse
           Expand-Archive -Path ./dist/ola-release.zip -DestinationPath ./release
+          Get-ChildItem -Path ./release -Recurse
           .\rcedit-x64.exe ./release/ola-win_x64.exe --set-icon ./public/favicon.ico
           Compress-Archive -Path ./release -DestinationPath ./dist/ola-release.zip -Force
 
