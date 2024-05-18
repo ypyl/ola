@@ -11,6 +11,7 @@
     "neu": "npx @neutralinojs/neu run",
     "neu-release": "npx @neutralinojs/neu build --release",
     "neu-build": "npx @neutralinojs/neu build",
+    "neu-update": "npx @neutralinojs/neu update",
     "sync-version": "node ./sync-version.js"
   },
   "devDependencies": {

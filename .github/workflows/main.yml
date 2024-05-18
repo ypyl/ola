@@ -27,6 +27,9 @@ jobs:
       - name: Sync versions
         run: npm run sync-version
 
+      - name: Generate neutralino binaries
+        run: npm run neu-update
+
       - name: Generate build
         run: npm run build
 
