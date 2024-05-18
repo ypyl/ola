@@ -1,12 +1,16 @@
 {
   "applicationId": "js.neutralino.zero",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "defaultMode": "window",
   "documentRoot": "/build/",
   "url": "/",
   "enableServer": true,
   "enableNativeAPI": true,
-  "nativeAllowList": ["app.*", "os.*", "filesystem.*"],
+  "nativeAllowList": [
+    "app.*",
+    "os.*",
+    "filesystem.*"
+  ],
   "modes": {
     "window": {
       "title": "ola",
