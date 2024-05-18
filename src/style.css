@@ -1,0 +1,174 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+h6 {
+  margin: 0;
+}
+
+#app {
+  margin: 0 auto;
+  padding: 2rem;
+  width: 100%;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.vanilla:hover {
+  filter: drop-shadow(0 0 2em #f7df1eaa);
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 1em;
+  padding: 0;
+  width: 25px;
+  height: 25px;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+  line-height: unset;
+  margin: 0;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+
+.controls {
+  display: flex;
+  flex-direction: row;
+  margin-left: auto;
+  gap: 5px;
+}
+
+.header {
+  display: flex;
+  flex-direction: row;
+}
+
+hr {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.header > div:first-child {
+  border-top: 1px #e1e1e1 solid;
+  border-top-right-radius: 3px;
+  border-top-left-radius: 3px;
+  border-right: 1px #e1e1e1 solid;
+  border-left: 1px #e1e1e1 solid;
+  padding-right: 5px;
+  padding-left: 5px;
+}
+
+.header > div:last-child {
+  border-bottom: 1px #e1e1e1 solid;
+  width: 100%;
+  display: flex;
+  justify-content: right;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  margin-bottom: 10px;
+  border-bottom: 1px #e1e1e1 solid;
+  border-left: 1px #e1e1e1 solid;
+  border-right: 1px #e1e1e1 solid;
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-bottom: 5px;
+  padding-top: 5px;
+}
+
+.content > *:last-child {
+  margin-bottom: 0;
+}
+
+.u-full-width {
+  max-width: 100%;
+  min-width: 100%;
+}
+
+button.menu {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+}
+
+table.prompts tbody tr:hover {
+  background-color: #F1F1F1;
+  cursor: pointer;
+}
+
+table.prompts td, table.prompts th {
+  padding-left: 5px;
+  padding-right: 5px;
+}

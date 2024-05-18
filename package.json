@@ -1,0 +1,25 @@
+{
+  "name": "ola",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "release": "npm version patch && git push && git push --tags",
+    "neu": "npx @neutralinojs/neu run",
+    "neu-release": "npx @neutralinojs/neu build --release",
+    "neu-build": "npx @neutralinojs/neu build",
+    "sync-version": "node ./sync-version.js"
+  },
+  "devDependencies": {
+    "vite": "^5.2.0"
+  },
+  "dependencies": {
+    "@neutralinojs/lib": "^5.1.0",
+    "marked": "^12.0.2",
+    "nanostores": "^0.10.3",
+    "ollama": "^0.5.0"
+  }
+}
