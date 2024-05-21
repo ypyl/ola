@@ -1,8 +1,8 @@
-import { $prompt, Prompt } from "./prompt.state";
-import { readPrompts } from "./fs";
-import { $route } from "./route";
+import { $prompt, Prompt } from "../state/prompt.state";
+import { readPrompts } from "../api/fs";
+import { $route } from "../state/route";
 
-export async function menu(app: Element) {
+export async function promptsElement(app: Element) {
   const prompts = await readPrompts();
   app.innerHTML = `<div class="container"><table class="u-full-width prompts">
     <thead>

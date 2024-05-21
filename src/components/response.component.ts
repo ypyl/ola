@@ -1,18 +1,15 @@
-import { abort, generateHtml } from "./ollama.api";
+import { abort, generateHtml } from "../api/ollama.api";
 import { $counter } from "./editable.component";
-import { cancelIcon, regenerateIcon } from "./svg";
+import { cancelIcon, regenerateIcon } from "../svg";
 
-export function createElements() {
+export function responseElement() {
   const controls = document.createElement("div");
   controls.className = "row";
   controls.innerHTML = `
     <div class="column header">
-      <div><h6>Answer</h6></div>
-      <div>
-        <div class="controls">
-          <button>${regenerateIcon}</button>
-          <button>${cancelIcon}</button>
-        </div>
+      <div class="controls">
+        <button>${regenerateIcon}</button>
+        <button>${cancelIcon}</button>
       </div>
     </div>`;
   const content = document.createElement("div");

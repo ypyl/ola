@@ -85,6 +85,11 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+.button {
+  height: auto;
+  line-height: normal;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -113,16 +118,6 @@ button:focus-visible {
 hr {
   margin-top: 1rem;
   margin-bottom: 1rem;
-}
-
-.header > div:first-child {
-  border-top: 1px #e1e1e1 solid;
-  border-top-right-radius: 3px;
-  border-top-left-radius: 3px;
-  border-right: 1px #e1e1e1 solid;
-  border-left: 1px #e1e1e1 solid;
-  padding-right: 5px;
-  padding-left: 5px;
 }
 
 .header > div:last-child {

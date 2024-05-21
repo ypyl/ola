@@ -1,5 +1,5 @@
 import { deepMap } from "nanostores";
-import { updatePrompt } from "./fs";
+import { updatePrompt } from "../api/fs";
 
 export const $prompt = deepMap<Prompt>();
 

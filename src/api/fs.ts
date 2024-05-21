@@ -1,5 +1,5 @@
 import { filesystem } from "@neutralinojs/lib";
-import { Prompt } from "./prompt.state";
+import { Prompt } from "../state/prompt.state";
 
 export async function readPrompts() {
   let entries;

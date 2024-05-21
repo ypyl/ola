@@ -1,4 +1,4 @@
-import { deleteIcon, editIcon, saveIcon } from "./svg";
+import { deleteIcon, editIcon, saveIcon } from "../svg";
 import { atom } from "nanostores";
 
 export const $counter = atom(0);
@@ -11,8 +11,7 @@ function descriseEditState() {
   $counter.set($counter.get() - 1);
 }
 
-export function createElements(
-  title: string,
+export function editableElement(
   getValue: () => string,
   setValue: (value: string) => void
 ): HTMLElement[] {
@@ -20,7 +19,6 @@ export function createElements(
   controls.className = "row";
   controls.innerHTML = `
     <div class="column header">
-      <div><h6>${title}</h6></div>
       <div class="controls">
         <button data-state="edit">${editIcon}</button>
         <button>${deleteIcon}</button>
