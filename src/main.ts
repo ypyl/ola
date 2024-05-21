@@ -2,13 +2,13 @@ import './normalize.css'
 import './skeleton.css'
 import "./style.css";
 
-import { createElements as createAnswer } from "./response";
-import { createElements as createSystem } from "./system";
-import { createElements as createPrompt } from "./prompt";
+import { createElements as createAnswer } from "./response.component";
+import { createElements as createSystem } from "./system.component";
+import { createElements as createPrompt } from "./prompt.component";
 import { menuIcon } from "./svg";
 import { init } from "@neutralinojs/lib";
 import { $route } from "./route";
-import { menu } from "./prompts";
+import { menu } from "./prompts.component";
 
 init();
 

@@ -1,6 +1,6 @@
 import * as marked from "marked";
 import ollama from "ollama/browser";
-import { $prompt } from "./prompt-state";
+import { $prompt } from "./prompt.state";
 
 const model = "llama3";
 

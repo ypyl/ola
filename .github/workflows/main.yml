@@ -27,13 +27,13 @@ jobs:
       - name: Sync versions
         run: npm run sync-version
 
-      - name: Generate neutralino binaries
+      - name: Download neutralino binaries
         run: npm run neu-update
 
-      - name: Generate build
+      - name: Build application
         run: npm run build
 
-      - name: Generate release
+      - name: Create neutralino release
         run: npm run neu-release
 
       - name: Add icon to win exe
@@ -44,17 +44,17 @@ jobs:
           .\rcedit-x64.exe ./release/ola-win_x64.exe --set-icon ./public/favicon.ico
           Compress-Archive -Path ./release -DestinationPath ./dist/ola-release.zip -Force
 
-      - name: Copy build
+      - name: Copy build for auto update
         run: Copy-Item -Path ./release/resources.neu -Destination ~/resources.neu
 
-      - name: Release
+      - name: Do release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             dist/ola-release.zip
 
       - uses: actions/checkout@v2
-      - name: Commit release
+      - name: Commit release version to repository for  auto-update
         run: |
           git config --global user.name 'Yauhen Pyl'
           git config --global user.email 'yauhen.pyl@gmail.com'

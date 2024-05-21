@@ -1,5 +1,5 @@
-import { abort, generateHtml } from "./ollama-api";
-import { $counter } from "./editable";
+import { abort, generateHtml } from "./ollama.api";
+import { $counter } from "./editable.component";
 import { cancelIcon, regenerateIcon } from "./svg";
 
 export function createElements() {

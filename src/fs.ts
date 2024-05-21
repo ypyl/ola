@@ -1,5 +1,5 @@
 import { filesystem } from "@neutralinojs/lib";
-import { Prompt } from "./prompt-state";
+import { Prompt } from "./prompt.state";
 
 export async function readPrompts() {
   let entries;
@@ -15,7 +15,7 @@ export async function readPrompts() {
       description: "Explain the color of the sky.",
       system: "Use one sentence for answer.",
       path: "./data/why-sky-is-blue.md",
-    })
+    });
     entries = await filesystem.readDirectory("data");
   }
   const prompts: Prompt[] = [];
@@ -52,9 +52,9 @@ async function extractPrompt(path: string): Promise<Prompt> {
     }
   }
   return {
-    prompt,
+    prompt: prompt,
     description,
-    system,
+    system: system,
     path,
   };
 }

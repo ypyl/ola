@@ -1,4 +1,4 @@
-import { $prompt, Prompt } from "./prompt-state";
+import { $prompt, Prompt } from "./prompt.state";
 import { readPrompts } from "./fs";
 import { $route } from "./route";
 

@@ -1,15 +1,19 @@
-import { map } from "nanostores";
+import { deepMap } from "nanostores";
 import { updatePrompt } from "./fs";
 
-export const $prompt = map<Prompt>();
+export const $prompt = deepMap<Prompt>();
 
 $prompt.listen(async (prompt) => {
   await updatePrompt(prompt);
 });
 
-export interface Prompt {
+export type Prompt = {
   prompt: string;
   description: string;
   system: string;
   path: string;
 };
+
+function getPromptValue() {
+
+}
