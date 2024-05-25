@@ -1,7 +1,14 @@
 import { filesystem } from "@neutralinojs/lib";
-import { Prompt } from "../state/prompt.state";
 
-export async function readPrompts() {
+type Prompt = {
+  prompt: string;
+  description: string;
+  system: string;
+  path: string;
+};
+
+
+export async function readPrompts(): Promise<Prompt[]> {
   let entries;
   try {
     entries = await filesystem.readDirectory("data");

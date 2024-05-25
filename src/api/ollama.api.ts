@@ -1,15 +1,14 @@
 import * as marked from "marked";
 import ollama from "ollama/browser";
-import { $prompt } from "../state/prompt.state";
 
 const model = "llama3";
 
-export async function* generateHtml() {
+export async function* generateHtml(prompt, system) {
   try {
     const response = await ollama.generate({
       model: model,
-      prompt: $prompt.get().prompt,
-      system: $prompt.get().system,
+      prompt: prompt,
+      system: system,
       stream: true,
     });
 
