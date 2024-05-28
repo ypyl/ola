@@ -121,7 +121,6 @@ hr {
 }
 
 .header > div:last-child {
-  border-bottom: 1px #e1e1e1 solid;
   width: 100%;
   display: flex;
   justify-content: right;
@@ -134,13 +133,8 @@ hr {
 
 .content {
   margin-bottom: 10px;
-  border-bottom: 1px #e1e1e1 solid;
-  border-left: 1px #e1e1e1 solid;
-  border-right: 1px #e1e1e1 solid;
-  padding-left: 5px;
-  padding-right: 5px;
-  padding-bottom: 5px;
-  padding-top: 5px;
+  /* padding-bottom: 5px;
+  padding-top: 5px; */
 }
 
 .content > *:last-child {

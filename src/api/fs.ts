@@ -1,14 +1,14 @@
 import { filesystem } from "@neutralinojs/lib";
 
-type Prompt = {
-  prompt: string;
+export type Conversation = {
+  name: string;
+  question: string;
   description: string;
-  system: string;
+  instructions: string;
   path: string;
 };
 
-
-export async function readPrompts(): Promise<Prompt[]> {
+export async function readConversations(): Promise<Conversation[]> {
   let entries;
   try {
     entries = await filesystem.readDirectory("data");
@@ -17,51 +17,58 @@ export async function readPrompts(): Promise<Prompt[]> {
       throw ex;
     }
     await filesystem.createDirectory("data");
-    await updatePrompt({
-      prompt: "Why sky is blue?",
+    await updateConversation({
+      name: "why-sky-is-blue",
+      question: "Why sky is blue?",
       description: "Explain the color of the sky.",
-      system: "Use one sentence for answer.",
+      instructions: "Use one sentence for answer.",
       path: "./data/why-sky-is-blue.md",
     });
     entries = await filesystem.readDirectory("data");
   }
-  const prompts: Prompt[] = [];
+  const conversaions: Conversation[] = [];
   for (const item of entries) {
-    prompts.push(await extractPrompt(item.path));
+    conversaions.push(await extractConversation(item.path));
   }
-  return prompts;
+  return conversaions;
 }
 
-const promptTitle = "# Prompt";
-const systemTitle = "# System";
+const nameTitle = "# Name";
+const questionTitle = "# Question";
+const instructionsTitle = "# Instructions";
 const descriptionTitle = "# Description";
 
-const titles = [promptTitle, systemTitle, descriptionTitle];
+const titles = [questionTitle, instructionsTitle, descriptionTitle];
 
-async function extractPrompt(path: string): Promise<Prompt> {
+async function extractConversation(path: string): Promise<Conversation> {
   const lines = await readLines(path);
   const index = indexPromptFile(lines);
-  let prompt = "";
+  let name = "";
+  let question = "";
   let description = "";
-  let system = "";
+  let instructions = "";
   for (let i = 0; i < index.length; i++) {
     const startIndex = index[i];
     const endIndex =
       startIndex === index[index.length - 1] ? lines.length - 1 : index[i + 1];
-    if (lines[startIndex] === promptTitle) {
-      prompt = extractOneItem(lines, startIndex, endIndex);
+    if (lines[startIndex] === nameTitle) {
+      name = extractOneItem(lines, startIndex, endIndex);
+    }
+    if (lines[startIndex] === questionTitle) {
+      question = extractOneItem(lines, startIndex, endIndex);
     }
     if (lines[startIndex] === descriptionTitle) {
       description = extractOneItem(lines, startIndex, endIndex);
     }
-    if (lines[startIndex] === systemTitle) {
-      system = extractOneItem(lines, startIndex, endIndex);
+    if (lines[startIndex] === instructionsTitle) {
+      instructions = extractOneItem(lines, startIndex, endIndex);
     }
   }
   return {
-    prompt: prompt,
+    name: name ?? path,
+    question,
     description,
-    system: system,
+    instructions,
     path,
   };
 }
@@ -74,23 +81,27 @@ function extractOneItem(lines: string[], start: number, end: number): string {
   return result.trim();
 }
 
-export async function updatePrompt(prompt: Prompt) {
-  const promptString = createPromptString(prompt);
-  await filesystem.writeFile(prompt.path, promptString);
+export async function updateConversation(conversation: Conversation) {
+  const promptString = createConversationString(conversation);
+  await filesystem.writeFile(conversation.path, promptString);
 }
 
-function createPromptString(prompt: Prompt): string {
-  return `# System
+function createConversationString(conversation: Conversation): string {
+  return `# Name
 
-${prompt.system}
+${conversation.name}
 
-# Prompt
+# Instructions
 
-${prompt.prompt}
+${conversation.instructions}
+
+# Question
+
+${conversation.question}
 
 # Description
 
-${prompt.description}
+${conversation.description}
 `;
 }
 

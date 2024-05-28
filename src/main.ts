@@ -1,4 +1,4 @@
-import { readPrompts } from "./api/fs";
+import { Conversation, readConversations } from "./api/fs";
 import "./normalize.css";
 import "./skeleton.css";
 import "./style.css";
@@ -17,14 +17,7 @@ import { abort, generateHtml } from "./api/ollama.api";
 
 init();
 
-type Prompt = {
-  prompt: string;
-  description: string;
-  system: string;
-  path: string;
-};
-
-type PromptState = {
+type EditState = {
   isEditPrompt: boolean;
   isEditSystem: boolean;
 };
@@ -35,10 +28,10 @@ enum Route {
 }
 
 type Model = {
-  prompts: Prompt[];
+  conversations: Conversation[];
   route: Route;
-  targetPrompt: Prompt | undefined;
-  promptState: PromptState;
+  currentConversation: Conversation | undefined;
+  editState: EditState;
   response: string;
 };
 
@@ -51,12 +44,12 @@ function main() {
   }
 
   const fetchPrompts = async (dispatch) => {
-    const prompts = await readPrompts();
-    requestAnimationFrame(() => dispatch(GetPrompts, prompts));
+    const conversations = await readConversations();
+    requestAnimationFrame(() => dispatch(GetConversations, conversations));
   };
 
-  const fetchModelResponse = async (dispatch, prompt) => {
-    for await (const chunk of generateHtml(prompt.prompt, prompt.system)) {
+  const fetchModelResponse = async (dispatch, conversation) => {
+    for await (const chunk of generateHtml(conversation.question, conversation.instructions)) {
       requestAnimationFrame(() => dispatch(SetResponse, chunk));
     }
   };
@@ -64,13 +57,13 @@ function main() {
     abort();
   };
 
-  const GetPrompts = (state, prompts) => ({ ...state, prompts });
-  const SelectPrompt = (state, prompt) => [
-    { ...state, targetPrompt: prompt, response: "..." },
-    [fetchModelResponse, prompt],
+  const GetConversations: (state: Model, conversations: Conversation[]) => Model = (state, conversations) => ({ ...state, conversations });
+  const SelectPrompt = (state, conversation) => [
+    { ...state, currentConversation: conversation, response: "..." },
+    [fetchModelResponse, conversation],
   ];
   const GoMenu = (state) => [
-    { ...state, targetPrompt: undefined },
+    { ...state, currentConversation: undefined },
     abortResponse,
   ];
   const SetResponse = (state, value) => ({ ...state, response: value });
@@ -78,31 +71,31 @@ function main() {
   const RegenerateResponse = (state) => [
     state,
     abortResponse,
-    [fetchModelResponse, state.targetPrompt],
+    [fetchModelResponse, state.currentConversation],
   ];
   const ToggleEditPrompt = (state) => ({
     ...state,
-    promptState: {
-      ...state.promptState,
-      isEditPrompt: !state.promptState.isEditPrompt,
+    editState: {
+      ...state.editState,
+      isEditPrompt: !state.editState.isEditPrompt,
     },
   });
   const ToggleEditSystem = (state) => [
     {
       ...state,
-      promptState: {
-        ...state.promptState,
-        isEditSystem: !state.promptState.isEditSystem,
+      editState: {
+        ...state.editState,
+        isEditSystem: !state.editState.isEditSystem,
       },
     },
   ];
   const SetPrompt = (state, value) => ({
     ...state,
-    targetPrompt: { ...state.targetPrompt, prompt: value },
+    currentConversation: { ...state.currentConversation, prompt: value },
   });
   const SetSystem = (state, value) => ({
     ...state,
-    targetPrompt: { ...state.targetPrompt, system: log(value) },
+    currentConversation: { ...state.currentConversation, system: log(value) },
   });
 
   const editTextView = (isEdit, value, ToggleAction, SetValue) => {
@@ -154,7 +147,7 @@ function main() {
       ]),
       h("div", { class: "row" }, [
         h("div", {
-          class: ["header", "content"],
+          class: "content",
           innerHTML: value,
         }),
       ]),
@@ -174,35 +167,35 @@ function main() {
   app<Model>({
     init: [
       {
-        prompts: [],
+        conversations: [],
         route: Route.Menu,
-        targetPrompt: undefined,
-        promptState: { isEditPrompt: false, isEditSystem: false },
+        currentConversation: undefined,
+        editState: { isEditPrompt: false, isEditSystem: false },
         response: "",
       },
       fetchPrompts,
     ],
     view: ({
-      prompts,
-      targetPrompt,
-      promptState: { isEditPrompt, isEditSystem },
+      conversations,
+      currentConversation,
+      editState: { isEditPrompt, isEditSystem },
       response,
     }) => {
-      if (targetPrompt) {
+      if (currentConversation) {
         return h("div", { style: { width: "100%" } }, [
           h("button", { class: "menu", innerHTML: menuIcon, onclick: GoMenu }),
           h("div", { class: "container" }, [
-            delimiter("System prompt"),
+            delimiter("Instructions"),
             ...editTextView(
               isEditSystem,
-              targetPrompt.system,
+              currentConversation.instructions,
               ToggleEditSystem,
               SetSystem
             ),
-            delimiter("Prompt"),
+            delimiter("Question"),
             ...editTextView(
               isEditPrompt,
-              targetPrompt.prompt,
+              currentConversation.question,
               ToggleEditPrompt,
               SetPrompt
             ),
@@ -222,10 +215,10 @@ function main() {
           h(
             "tbody",
             {},
-            prompts.map((prompt) => {
-              return h("tr", { onclick: [SelectPrompt, prompt] }, [
-                h("td", {}, text(prompt.prompt)),
-                h("td", {}, text(prompt.description)),
+            conversations.map((conversation) => {
+              return h("tr", { onclick: [SelectPrompt, conversation] }, [
+                h("td", {}, text(conversation.question)),
+                h("td", {}, text(conversation.description)),
               ]);
             })
           ),
