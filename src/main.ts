@@ -4,7 +4,16 @@ import "./skeleton.css";
 import "./style.css";
 
 import { init } from "@neutralinojs/lib";
-import { h, text, app, ElementVNode } from "hyperapp";
+import {
+  h,
+  text,
+  app,
+  ElementVNode,
+  Dispatch,
+  Dispatchable,
+  MaybeEffect,
+  Action,
+} from "hyperapp";
 import {
   cancelIcon,
   deleteIcon,
@@ -17,21 +26,28 @@ import { abort, generateHtml } from "./api/ollama.api";
 
 init();
 
-type EditState = {
-  isEditPrompt: boolean;
-  isEditSystem: boolean;
-};
-
 enum Route {
   Menu,
   Prompt,
 }
 
+type EditableString = {
+  value: string;
+  isEdit: boolean;
+};
+
+type CurrentConversation = {
+  name: string;
+  question: EditableString[];
+  description: string;
+  instructions: EditableString[];
+  path: string;
+};
+
 type Model = {
   conversations: Conversation[];
   route: Route;
-  currentConversation: Conversation | undefined;
-  editState: EditState;
+  currentConversation: CurrentConversation | undefined;
   response: string;
 };
 
@@ -43,13 +59,19 @@ function main() {
     return;
   }
 
-  const fetchPrompts = async (dispatch) => {
+  const fetchPrompts = async (dispatch: Dispatch<Model>) => {
     const conversations = await readConversations();
     requestAnimationFrame(() => dispatch(GetConversations, conversations));
   };
 
-  const fetchModelResponse = async (dispatch, conversation) => {
-    for await (const chunk of generateHtml(conversation.question, conversation.instructions)) {
+  const fetchModelResponse = async (
+    dispatch: Dispatch<Model>,
+    conversation: CurrentConversation
+  ) => {
+    for await (const chunk of generateHtml(
+      conversation.question.map((x) => x.value).join(" "),
+      conversation.instructions.map((x) => x.value).join(" ")
+    )) {
       requestAnimationFrame(() => dispatch(SetResponse, chunk));
     }
   };
@@ -57,55 +79,144 @@ function main() {
     abort();
   };
 
-  const GetConversations: (state: Model, conversations: Conversation[]) => Model = (state, conversations) => ({ ...state, conversations });
-  const SelectPrompt = (state, conversation) => [
-    { ...state, currentConversation: conversation, response: "..." },
-    [fetchModelResponse, conversation],
-  ];
-  const GoMenu = (state) => [
+  const GetConversations: (
+    state: Model,
+    conversations: Conversation[]
+  ) => Model = (state, conversations) => ({ ...state, conversations });
+  const SelectPrompt: Action<Model, Conversation> = (
+    state: Model,
+    conversation: Conversation
+  ) => {
+    const currentConversation = {
+      name: conversation.name,
+      question: conversation.question.map((q) => ({
+        value: q,
+        isEdit: false,
+      })),
+      description: conversation.description,
+      instructions: conversation.instructions.map((q) => ({
+        value: q,
+        isEdit: false,
+      })),
+      path: conversation.path,
+    };
+    return [
+      {
+        ...state,
+        currentConversation,
+        response: "...",
+      },
+      [fetchModelResponse, currentConversation],
+    ];
+  };
+  const GoMenu: Action<Model, MouseEvent> = (state: Model) => [
     { ...state, currentConversation: undefined },
     abortResponse,
   ];
-  const SetResponse = (state, value) => ({ ...state, response: value });
-  const AbortResponse = (state) => [state, abortResponse];
-  const RegenerateResponse = (state) => [
+  const SetResponse = (state: Model, value: string) => ({
+    ...state,
+    response: value,
+  });
+  const AbortResponse: Action<Model, MouseEvent> = (state: Model) => [
     state,
+    abortResponse,
+  ];
+  const RegenerateResponse: Action<Model, MouseEvent> = (state) => [
+    {
+      ...state,
+      response: "...",
+    },
     abortResponse,
     [fetchModelResponse, state.currentConversation],
   ];
-  const ToggleEditPrompt = (state) => ({
-    ...state,
-    editState: {
-      ...state.editState,
-      isEditPrompt: !state.editState.isEditPrompt,
-    },
-  });
-  const ToggleEditSystem = (state) => [
-    {
+  const ToggleEditQuestion = (state: Model, index: number) => {
+    if (!state.currentConversation) {
+      return { ...state };
+    }
+    const questionToToggle = state.currentConversation.question[index];
+    const updated = { ...questionToToggle, isEdit: !questionToToggle?.isEdit };
+    const copied = [...state.currentConversation.question];
+    copied[index] = updated;
+    return {
       ...state,
-      editState: {
-        ...state.editState,
-        isEditSystem: !state.editState.isEditSystem,
+      currentConversation: {
+        ...state.currentConversation,
+        question: copied,
       },
-    },
-  ];
-  const SetPrompt = (state, value) => ({
-    ...state,
-    currentConversation: { ...state.currentConversation, prompt: value },
-  });
-  const SetSystem = (state, value) => ({
-    ...state,
-    currentConversation: { ...state.currentConversation, system: log(value) },
-  });
+    };
+  };
+  const ToggleEditInstructions = (state: Model, index: number) => {
+    if (!state.currentConversation) {
+      return { ...state };
+    }
+    const toToggle = state.currentConversation.instructions[index];
+    const updated = { ...toToggle, isEdit: !toToggle?.isEdit };
+    const copied = [...state.currentConversation.instructions];
+    copied[index] = updated;
+    return {
+      ...state,
+      currentConversation: {
+        ...state.currentConversation,
+        instructions: copied,
+      },
+    };
+  };
+  const SetQuestion = (
+    state: Model,
+    { value, index }: { value: string; index: number }
+  ) => {
+    if (!state.currentConversation) {
+      return { ...state };
+    }
+    const questionToUpdate = state.currentConversation.question[index];
+    const updated = { ...questionToUpdate, value: value };
+    const copied = [...state.currentConversation.question];
+    copied[index] = updated;
+    return {
+      ...state,
+      currentConversation: {
+        ...state.currentConversation,
+        question: copied,
+      },
+    };
+  };
+  const SetInstructions = (
+    state: Model,
+    { value, index }: { value: string; index: number }
+  ) => {
+    if (!state.currentConversation) {
+      return { ...state };
+    }
+    const toUpdate = state.currentConversation.instructions[index];
+    const updated = { ...toUpdate, value: value };
+    const copied = [...state.currentConversation.instructions];
+    copied[index] = updated;
+    return {
+      ...state,
+      currentConversation: {
+        ...state.currentConversation,
+        instructions: copied,
+      },
+    };
+  };
 
-  const editTextView = (isEdit, value, ToggleAction, SetValue) => {
+  const editTextView = (
+    isEdit: boolean,
+    value: string,
+    index: number,
+    ToggleAction: (state: Model, index: number) => Dispatchable<Model, any>,
+    SetValue: (
+      state: Model,
+      { value, index }: { value: string; index: number }
+    ) => Model
+  ) => {
     return [
       h("div", { class: "row" }, [
         h("div", { class: ["header", "column"] }, [
           h("div", { class: "controls" }, [
             h("button", {
               innerHTML: isEdit ? saveIcon : editIcon,
-              onclick: ToggleAction,
+              onclick: [ToggleAction, index],
             }),
             h("button", { innerHTML: deleteIcon }),
           ]),
@@ -121,10 +232,15 @@ function main() {
             ? h("textarea", {
                 class: "u-full-width",
                 value: value,
-                oninput: (_, payload) => [
-                  SetValue,
-                  (payload.target as HTMLInputElement).value,
-                ],
+                oninput: (_, payload) => {
+                  return [
+                    SetValue,
+                    {
+                      value: (payload.target as HTMLInputElement).value,
+                      index,
+                    },
+                  ];
+                },
               })
             : h("div", { innerHTML: toHtml(value) })
         ),
@@ -132,7 +248,7 @@ function main() {
     ] as ElementVNode<Model>[];
   };
 
-  const responseView = (value) => {
+  const responseView = (value: string) => {
     return [
       h("div", { class: "row" }, [
         h("div", { class: ["header", "column"] }, [
@@ -154,13 +270,11 @@ function main() {
     ] as ElementVNode<Model>[];
   };
 
-  const delimiter = (title) => {
+  const delimiter = (title: string) => {
     return h(
       "div",
       { class: "row" },
-      h("div", { class: ["column", "delimiter"] }, [
-        h("div", {}, text(title)),
-      ])
+      h("div", { class: ["column", "delimiter"] }, [h("div", {}, text(title))])
     ) as ElementVNode<Model>;
   };
 
@@ -170,35 +284,39 @@ function main() {
         conversations: [],
         route: Route.Menu,
         currentConversation: undefined,
-        editState: { isEditPrompt: false, isEditSystem: false },
         response: "",
       },
       fetchPrompts,
     ],
-    view: ({
-      conversations,
-      currentConversation,
-      editState: { isEditPrompt, isEditSystem },
-      response,
-    }) => {
+    view: ({ conversations, currentConversation, response }) => {
       if (currentConversation) {
+        const questionView = currentConversation.question.flatMap(
+          (question, index) =>
+            editTextView(
+              question.isEdit,
+              question.value,
+              index,
+              ToggleEditQuestion,
+              SetQuestion
+            )
+        );
+        const instructionView = currentConversation.instructions.flatMap(
+          (instruction, index) =>
+            editTextView(
+              instruction.isEdit,
+              instruction.value,
+              index,
+              ToggleEditInstructions,
+              SetInstructions
+            )
+        );
         return h("div", { style: { width: "100%" } }, [
           h("button", { class: "menu", innerHTML: menuIcon, onclick: GoMenu }),
           h("div", { class: "container" }, [
             delimiter("Instructions"),
-            ...editTextView(
-              isEditSystem,
-              currentConversation.instructions,
-              ToggleEditSystem,
-              SetSystem
-            ),
+            ...instructionView,
             delimiter("Question"),
-            ...editTextView(
-              isEditPrompt,
-              currentConversation.question,
-              ToggleEditPrompt,
-              SetPrompt
-            ),
+            ...questionView,
             delimiter("LLM answer"),
             ...responseView(response),
           ]),
