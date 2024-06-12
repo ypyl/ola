@@ -21,7 +21,7 @@ export async function readConversations(): Promise<Conversation[]> {
       name: "why-sky-is-blue",
       question: ["Why sky is blue?"],
       description: "Explain the color of the sky.",
-      instructions: ["Use one sentence for answer."],
+      instructions: ["You are an expert in physics.", "Use one sentence for answer."],
       path: "./data/why-sky-is-blue.md",
     });
     entries = await filesystem.readDirectory("data");

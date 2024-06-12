@@ -105,9 +105,13 @@ button:focus-visible {
 
 .controls {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   margin-left: auto;
-  gap: 5px;
+}
+
+.edit {
+  display: flex;
+  flex-direction: row;
 }
 
 .header {

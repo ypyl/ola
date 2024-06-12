@@ -15,6 +15,7 @@ import {
   Action,
 } from "hyperapp";
 import {
+  addIcon,
   cancelIcon,
   deleteIcon,
   editIcon,
@@ -32,6 +33,7 @@ enum Route {
 }
 
 type EditableString = {
+  index: number;
   value: string;
   isEdit: boolean;
 };
@@ -89,12 +91,14 @@ function main() {
   ) => {
     const currentConversation = {
       name: conversation.name,
-      question: conversation.question.map((q) => ({
+      question: conversation.question.map((q, index) => ({
+        index: conversation.instructions.length + index,
         value: q,
         isEdit: false,
       })),
       description: conversation.description,
-      instructions: conversation.instructions.map((q) => ({
+      instructions: conversation.instructions.map((q, index) => ({
+        index,
         value: q,
         isEdit: false,
       })),
@@ -133,10 +137,11 @@ function main() {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const questionToToggle = state.currentConversation.question[index];
-    const updated = { ...questionToToggle, isEdit: !questionToToggle?.isEdit };
+    const questionToUpdateIndex = state.currentConversation.question.findIndex(x => x.index === index);
+    const questionToToggle = state.currentConversation.question[questionToUpdateIndex]
+    const updated = { ...questionToToggle, isEdit: !questionToToggle?.isEdit};
     const copied = [...state.currentConversation.question];
-    copied[index] = updated;
+    copied[questionToUpdateIndex] = updated;
     return {
       ...state,
       currentConversation: {
@@ -149,10 +154,89 @@ function main() {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const toToggle = state.currentConversation.instructions[index];
+    const toUpdateIndex = state.currentConversation.instructions.findIndex(x => x.index === index);
+    const toToggle = state.currentConversation.instructions[toUpdateIndex];
     const updated = { ...toToggle, isEdit: !toToggle?.isEdit };
     const copied = [...state.currentConversation.instructions];
-    copied[index] = updated;
+    copied[toUpdateIndex] = updated;
+    return {
+      ...state,
+      currentConversation: {
+        ...state.currentConversation,
+        instructions: copied,
+      },
+    };
+  };
+  const AddNewQuestion = (state: Model, index: number) => {
+    if (!state.currentConversation) {
+      return { ...state };
+    }
+    const copied = [...state.currentConversation.question];
+    const indexes = [
+      ...copied.map((x) => x.index),
+      ...state.currentConversation.instructions.map((x) => x.index),
+    ];
+    const newInstruction = {
+      value: "",
+      isEdit: true,
+      index: Math.max(...indexes) + 1,
+    };
+    const inserAfter = copied.findIndex((x) => x.index === index);
+    copied.splice(inserAfter + 1, 0, newInstruction);
+    return {
+      ...state,
+      currentConversation: {
+        ...state.currentConversation,
+        question: copied,
+      },
+    };
+  };
+  const DeleteQuestion = (state: Model, index: number) => {
+    if (!state.currentConversation) {
+      return { ...state };
+    }
+    const copied = [...state.currentConversation.question];
+    const deleteIndex = copied.findIndex((x) => x.index === index);
+    copied.splice(deleteIndex, 1);
+    return {
+      ...state,
+      currentConversation: {
+        ...state.currentConversation,
+        question: copied,
+      },
+    };
+  };
+  const AddNewInstruction = (state: Model, index: number) => {
+    if (!state.currentConversation) {
+      return { ...state };
+    }
+    const copied = [...state.currentConversation.instructions];
+    const indexes = [
+      ...copied.map((x) => x.index),
+      ...state.currentConversation.question.map((x) => x.index),
+    ];
+    const newInstruction = {
+      value: "",
+      isEdit: true,
+      index: Math.max(...indexes) + 1,
+    };
+    const inserAfter = copied.findIndex((x) => x.index === index);
+    copied.splice(inserAfter + 1, 0, newInstruction);
+    return {
+      ...state,
+      currentConversation: {
+        ...state.currentConversation,
+        instructions: copied,
+      },
+    };
+  };
+  const DeleteInstruction = (state: Model, index: number) => {
+    if (!state.currentConversation) {
+      return { ...state };
+    }
+    const copied = [...state.currentConversation.instructions];
+    const deleteIndex = copied.findIndex((x) => x.index === index);
+    copied.splice(deleteIndex, 1);
     return {
       ...state,
       currentConversation: {
@@ -168,10 +252,10 @@ function main() {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const questionToUpdate = state.currentConversation.question[index];
-    const updated = { ...questionToUpdate, value: value };
+    const questionToUpdateIndex = state.currentConversation.question.findIndex(x => x.index === index);
+    const updated = { ...state.currentConversation.question[questionToUpdateIndex], value: value };
     const copied = [...state.currentConversation.question];
-    copied[index] = updated;
+    copied[questionToUpdateIndex] = updated;
     return {
       ...state,
       currentConversation: {
@@ -187,10 +271,10 @@ function main() {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const toUpdate = state.currentConversation.instructions[index];
-    const updated = { ...toUpdate, value: value };
+    const toUpdateIndex = state.currentConversation.instructions.findIndex(x => x.index === index);
+    const updated = { ...state.currentConversation.instructions[toUpdateIndex], value: value };
     const copied = [...state.currentConversation.instructions];
-    copied[index] = updated;
+    copied[toUpdateIndex] = updated;
     return {
       ...state,
       currentConversation: {
@@ -208,21 +292,13 @@ function main() {
     SetValue: (
       state: Model,
       { value, index }: { value: string; index: number }
-    ) => Model
+    ) => Model,
+    AddAction: (state: Model, index: number) => Dispatchable<Model, any>,
+    DeleteAction: (state: Model, index: number) => Dispatchable<Model, any>,
+    showDelete: boolean
   ) => {
     return [
-      h("div", { class: "row" }, [
-        h("div", { class: ["header", "column"] }, [
-          h("div", { class: "controls" }, [
-            h("button", {
-              innerHTML: isEdit ? saveIcon : editIcon,
-              onclick: [ToggleAction, index],
-            }),
-            h("button", { innerHTML: deleteIcon }),
-          ]),
-        ]),
-      ]),
-      h("div", { class: "row" }, [
+      h("div", { class: ["row", "edit"], key: index + "content" }, [
         h(
           "div",
           {
@@ -244,28 +320,37 @@ function main() {
               })
             : h("div", { innerHTML: toHtml(value) })
         ),
+        h("div", { class: "controls" }, [
+          h("button", {
+            innerHTML: isEdit ? saveIcon : editIcon,
+            onclick: [ToggleAction, index],
+          }),
+          showDelete
+            ? h("button", {
+                innerHTML: deleteIcon,
+                onclick: [DeleteAction, index],
+              })
+            : null,
+          h("button", { innerHTML: addIcon, onclick: [AddAction, index] }),
+        ]),
       ]),
     ] as ElementVNode<Model>[];
   };
 
   const responseView = (value: string) => {
     return [
-      h("div", { class: "row" }, [
-        h("div", { class: ["header", "column"] }, [
-          h("div", { class: "controls" }, [
-            h("button", {
-              innerHTML: regenerateIcon,
-              onclick: RegenerateResponse,
-            }),
-            h("button", { innerHTML: cancelIcon, onclick: AbortResponse }),
-          ]),
-        ]),
-      ]),
-      h("div", { class: "row" }, [
+      h("div", { class: ["row", "edit"] }, [
         h("div", {
           class: "content",
           innerHTML: value,
         }),
+        h("div", { class: "controls" }, [
+          h("button", {
+            innerHTML: regenerateIcon,
+            onclick: RegenerateResponse,
+          }),
+          h("button", { innerHTML: cancelIcon, onclick: AbortResponse }),
+        ]),
       ]),
     ] as ElementVNode<Model>[];
   };
@@ -290,24 +375,29 @@ function main() {
     ],
     view: ({ conversations, currentConversation, response }) => {
       if (currentConversation) {
-        const questionView = currentConversation.question.flatMap(
-          (question, index) =>
-            editTextView(
-              question.isEdit,
-              question.value,
-              index,
-              ToggleEditQuestion,
-              SetQuestion
-            )
+        const questionView = currentConversation.question.flatMap((question) =>
+          editTextView(
+            question.isEdit,
+            question.value,
+            question.index,
+            ToggleEditQuestion,
+            SetQuestion,
+            AddNewQuestion,
+            DeleteQuestion,
+            currentConversation.question.length > 1
+          )
         );
         const instructionView = currentConversation.instructions.flatMap(
-          (instruction, index) =>
+          (instruction) =>
             editTextView(
               instruction.isEdit,
               instruction.value,
-              index,
+              instruction.index,
               ToggleEditInstructions,
-              SetInstructions
+              SetInstructions,
+              AddNewInstruction,
+              DeleteInstruction,
+              currentConversation.instructions.length > 1
             )
         );
         return h("div", { style: { width: "100%" } }, [
