@@ -1,4 +1,4 @@
-import * as marked from "marked";
+
 import ollama from "ollama/browser";
 
 const model = "llama3";
@@ -16,8 +16,7 @@ export async function* generateHtml(prompt, system) {
 
     for await (const chunk of response) {
       result = result + chunk.response;
-      const html = marked.parse(result);
-      yield html;
+      yield result;
     }
   } catch (error) {
     if (error.name === "AbortError") {

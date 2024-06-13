@@ -2,7 +2,7 @@ import { Conversation, readConversations } from "./api/fs";
 import "./normalize.css";
 import "./skeleton.css";
 import "./style.css";
-
+import * as marked from "marked";
 import { init, clipboard } from "@neutralinojs/lib";
 import {
   h,
@@ -390,11 +390,12 @@ function main() {
   };
 
   const responseView = (value: string) => {
+    const htmlValue = marked.parse(value);
     return [
       h("div", { class: ["row", "edit"] }, [
         h("div", {
           class: "content",
-          innerHTML: value,
+          innerHTML: htmlValue,
         }),
         h("div", { class: "controls" }, [
           h("button", {
