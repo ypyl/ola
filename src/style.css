@@ -168,4 +168,10 @@ table.prompts td, table.prompts th {
 
 .delimiter {
   border-bottom: 1px #e1e1e1 solid;
+  display: flex;
+  flex-direction: row;
+}
+
+.delimiter > button:last-child {
+  margin-left: auto;
 }

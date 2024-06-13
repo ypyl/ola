@@ -3,7 +3,7 @@ import "./normalize.css";
 import "./skeleton.css";
 import "./style.css";
 
-import { init } from "@neutralinojs/lib";
+import { init, clipboard } from "@neutralinojs/lib";
 import {
   h,
   text,
@@ -17,6 +17,7 @@ import {
 import {
   addIcon,
   cancelIcon,
+  copyIcon,
   deleteIcon,
   editIcon,
   menuIcon,
@@ -80,6 +81,29 @@ function main() {
   const abortResponse = () => {
     abort();
   };
+  const CopyInstructionToClipboard = async ( _dispatch: Dispatch<Model>,
+    conversation?: CurrentConversation
+  ) => {
+    if (!conversation) {
+      return;
+    }
+    const instruction = conversation.instructions.map(x => x.value).join('\n')
+    await clipboard.writeText(instruction);
+  }
+  const CopyQuestionToClipboard = async ( _dispatch: Dispatch<Model>,
+    conversation?: CurrentConversation
+  ) => {
+    if (!conversation) {
+      return;
+    }
+    const instruction = conversation.question.map(x => x.value).join('\n')
+    await clipboard.writeText(instruction);
+  }
+  const CopyResponseToClipboard = async ( _dispatch: Dispatch<Model>,
+    response: string
+  ) => {
+    await clipboard.writeText(response);
+  }
 
   const GetConversations: (
     state: Model,
@@ -137,9 +161,12 @@ function main() {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const questionToUpdateIndex = state.currentConversation.question.findIndex(x => x.index === index);
-    const questionToToggle = state.currentConversation.question[questionToUpdateIndex]
-    const updated = { ...questionToToggle, isEdit: !questionToToggle?.isEdit};
+    const questionToUpdateIndex = state.currentConversation.question.findIndex(
+      (x) => x.index === index
+    );
+    const questionToToggle =
+      state.currentConversation.question[questionToUpdateIndex];
+    const updated = { ...questionToToggle, isEdit: !questionToToggle?.isEdit };
     const copied = [...state.currentConversation.question];
     copied[questionToUpdateIndex] = updated;
     return {
@@ -154,7 +181,9 @@ function main() {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const toUpdateIndex = state.currentConversation.instructions.findIndex(x => x.index === index);
+    const toUpdateIndex = state.currentConversation.instructions.findIndex(
+      (x) => x.index === index
+    );
     const toToggle = state.currentConversation.instructions[toUpdateIndex];
     const updated = { ...toToggle, isEdit: !toToggle?.isEdit };
     const copied = [...state.currentConversation.instructions];
@@ -252,8 +281,13 @@ function main() {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const questionToUpdateIndex = state.currentConversation.question.findIndex(x => x.index === index);
-    const updated = { ...state.currentConversation.question[questionToUpdateIndex], value: value };
+    const questionToUpdateIndex = state.currentConversation.question.findIndex(
+      (x) => x.index === index
+    );
+    const updated = {
+      ...state.currentConversation.question[questionToUpdateIndex],
+      value: value,
+    };
     const copied = [...state.currentConversation.question];
     copied[questionToUpdateIndex] = updated;
     return {
@@ -271,8 +305,13 @@ function main() {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const toUpdateIndex = state.currentConversation.instructions.findIndex(x => x.index === index);
-    const updated = { ...state.currentConversation.instructions[toUpdateIndex], value: value };
+    const toUpdateIndex = state.currentConversation.instructions.findIndex(
+      (x) => x.index === index
+    );
+    const updated = {
+      ...state.currentConversation.instructions[toUpdateIndex],
+      value: value,
+    };
     const copied = [...state.currentConversation.instructions];
     copied[toUpdateIndex] = updated;
     return {
@@ -283,6 +322,19 @@ function main() {
       },
     };
   };
+
+  const CopyInstructions = (state: Model) => [
+    state,
+    [CopyInstructionToClipboard, state.currentConversation],
+  ];
+  const CopyQuestions = (state: Model) => [
+    state,
+    [CopyQuestionToClipboard, state.currentConversation],
+  ];
+  const CopyResponse = (state: Model) => [
+    state,
+    [CopyResponseToClipboard, state.response],
+  ];
 
   const editTextView = (
     isEdit: boolean,
@@ -355,11 +407,14 @@ function main() {
     ] as ElementVNode<Model>[];
   };
 
-  const delimiter = (title: string) => {
+  const delimiter = (title: string, CopyValue) => {
     return h(
       "div",
       { class: "row" },
-      h("div", { class: ["column", "delimiter"] }, [h("div", {}, text(title))])
+      h("div", { class: ["column", "delimiter"] }, [
+        h("div", {}, text(title)),
+        h("button", { innerHTML: copyIcon, onclick: CopyValue }),
+      ])
     ) as ElementVNode<Model>;
   };
 
@@ -403,11 +458,11 @@ function main() {
         return h("div", { style: { width: "100%" } }, [
           h("button", { class: "menu", innerHTML: menuIcon, onclick: GoMenu }),
           h("div", { class: "container" }, [
-            delimiter("Instructions"),
+            delimiter("Instructions", CopyInstructions),
             ...instructionView,
-            delimiter("Question"),
+            delimiter("Question", CopyQuestions),
             ...questionView,
-            delimiter("LLM answer"),
+            delimiter("LLM answer", CopyResponse),
             ...responseView(response),
           ]),
         ]);

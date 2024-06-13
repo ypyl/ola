@@ -88,3 +88,8 @@ export const addIcon = `<svg width="15px" height="15px" viewBox="0 0 24 24" xmln
 </g>
 
 </svg>`
+
+
+export const copyIcon = `<svg fill="#000000" width="15px" height="15px" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M14 12V2H4V0h12v12h-2zM0 4h12v12H0V4zm2 2v8h8V6H2z" fill-rule="evenodd"/>
+</svg>`
