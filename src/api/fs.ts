@@ -4,7 +4,7 @@ export type Conversation = {
   name: string;
   question: string[];
   description: string;
-  instructions: string[];
+  instruction: string[];
   path: string;
 };
 
@@ -21,7 +21,7 @@ export async function readConversations(): Promise<Conversation[]> {
       name: "why-sky-is-blue",
       question: ["Why sky is blue?"],
       description: "Explain the color of the sky.",
-      instructions: ["You are an expert in physics.", "Use one sentence for answer."],
+      instruction: ["You are an expert in physics.", "Use one sentence for answer."],
       path: "./data/why-sky-is-blue.md",
     });
     entries = await filesystem.readDirectory("data");
@@ -35,10 +35,10 @@ export async function readConversations(): Promise<Conversation[]> {
 
 const nameTitle = "# Name";
 const questionTitle = "# Question";
-const instructionsTitle = "# Instructions";
+const instructionTitle = "# Instruction";
 const descriptionTitle = "# Description";
 
-const titles = [questionTitle, instructionsTitle, descriptionTitle];
+const titles = [nameTitle, questionTitle, instructionTitle, descriptionTitle];
 
 async function extractConversation(path: string): Promise<Conversation> {
   const lines = await readLines(path);
@@ -46,7 +46,7 @@ async function extractConversation(path: string): Promise<Conversation> {
   let name = "";
   let question: string[] = [];
   let description = "";
-  let instructions: string[] = [];
+  let instruction: string[] = [];
   for (let i = 0; i < index.length; i++) {
     const startIndex = index[i];
     const endIndex =
@@ -60,15 +60,15 @@ async function extractConversation(path: string): Promise<Conversation> {
     if (lines[startIndex] === descriptionTitle) {
       description = extractString(lines, startIndex, endIndex);
     }
-    if (lines[startIndex] === instructionsTitle) {
-      instructions = extractStringArray(lines, startIndex, endIndex);
+    if (lines[startIndex] === instructionTitle) {
+      instruction = extractStringArray(lines, startIndex, endIndex);
     }
   }
   return {
     name: name ?? path,
     question,
     description,
-    instructions,
+    instruction,
     path,
   };
 }
@@ -94,6 +94,9 @@ function extractStringArray(lines: string[], start: number, end: number): string
     }
     current += lines[i] + "\n";
   }
+  if (current) {
+    result.push(current.trim());
+  }
   return result;
 }
 
@@ -105,21 +108,22 @@ export async function updateConversation(conversation: Conversation) {
 
 function createConversationString(conversation: Conversation): string {
   const questionString = conversation.question.join("\n\n");
+  const instructionString = conversation.instruction.join("\n\n");
   return `# Name
 
 ${conversation.name}
 
-# Instructions
+# Description
 
-${conversation.instructions}
+${conversation.description}
+
+# Instruction
+
+${instructionString}
 
 # Question
 
 ${questionString}
-
-# Description
-
-${conversation.description}
 `;
 }
 

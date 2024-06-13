@@ -1,29 +1,11 @@
-import { Conversation, readConversations } from "./api/fs";
+import { Conversation, readConversations, updateConversation } from "./api/fs";
 import "./normalize.css";
 import "./skeleton.css";
 import "./style.css";
 import * as marked from "marked";
 import { init, clipboard } from "@neutralinojs/lib";
-import {
-  h,
-  text,
-  app,
-  ElementVNode,
-  Dispatch,
-  Dispatchable,
-  MaybeEffect,
-  Action,
-} from "hyperapp";
-import {
-  addIcon,
-  cancelIcon,
-  copyIcon,
-  deleteIcon,
-  editIcon,
-  menuIcon,
-  regenerateIcon,
-  saveIcon,
-} from "./svg";
+import { h, text, app, ElementVNode, Dispatch, Dispatchable, MaybeEffect, Action } from "hyperapp";
+import { addIcon, cancelIcon, copyIcon, deleteIcon, editIcon, menuIcon, regenerateIcon, saveIcon } from "./svg";
 import { abort, generateHtml } from "./api/ollama.api";
 
 init();
@@ -43,7 +25,7 @@ type CurrentConversation = {
   name: string;
   question: EditableString[];
   description: string;
-  instructions: EditableString[];
+  instruction: EditableString[];
   path: string;
 };
 
@@ -67,13 +49,14 @@ function main() {
     requestAnimationFrame(() => dispatch(GetConversations, conversations));
   };
 
-  const fetchModelResponse = async (
-    dispatch: Dispatch<Model>,
-    conversation: CurrentConversation
-  ) => {
+  const storeConversation = async (dispatch: Dispatch<Model>, conversation: Conversation) => {
+    await updateConversation(conversation);
+  };
+
+  const fetchModelResponse = async (dispatch: Dispatch<Model>, conversation: CurrentConversation) => {
     for await (const chunk of generateHtml(
       conversation.question.map((x) => x.value).join(" "),
-      conversation.instructions.map((x) => x.value).join(" ")
+      conversation.instruction.map((x) => x.value).join(" ")
     )) {
       requestAnimationFrame(() => dispatch(SetResponse, chunk));
     }
@@ -81,60 +64,94 @@ function main() {
   const abortResponse = () => {
     abort();
   };
-  const CopyInstructionToClipboard = async ( _dispatch: Dispatch<Model>,
-    conversation?: CurrentConversation
-  ) => {
+  const CopyInstructionToClipboard = async (_dispatch: Dispatch<Model>, conversation?: CurrentConversation) => {
     if (!conversation) {
       return;
     }
-    const instruction = conversation.instructions.map(x => x.value).join('\n')
+    const instruction = conversation.instruction.map((x) => x.value).join("\n");
     await clipboard.writeText(instruction);
-  }
-  const CopyQuestionToClipboard = async ( _dispatch: Dispatch<Model>,
-    conversation?: CurrentConversation
-  ) => {
+  };
+  const CopyQuestionToClipboard = async (_dispatch: Dispatch<Model>, conversation?: CurrentConversation) => {
     if (!conversation) {
       return;
     }
-    const instruction = conversation.question.map(x => x.value).join('\n')
+    const instruction = conversation.question.map((x) => x.value).join("\n");
     await clipboard.writeText(instruction);
-  }
-  const CopyResponseToClipboard = async ( _dispatch: Dispatch<Model>,
-    response: string
-  ) => {
+  };
+  const CopyResponseToClipboard = async (_dispatch: Dispatch<Model>, response: string) => {
     await clipboard.writeText(response);
-  }
+  };
 
-  const GetConversations: (
-    state: Model,
-    conversations: Conversation[]
-  ) => Model = (state, conversations) => ({ ...state, conversations });
-  const SelectPrompt: Action<Model, Conversation> = (
-    state: Model,
-    conversation: Conversation
-  ) => {
+  const GetConversations: (state: Model, conversations: Conversation[]) => Model = (state, conversations) => ({
+    ...state,
+    conversations,
+  });
+  const SelectPrompt: Action<Model, Conversation> = (state: Model, conversation: Conversation) => {
     const currentConversation = {
       name: conversation.name,
-      question: conversation.question.map((q, index) => ({
-        index: conversation.instructions.length + index,
-        value: q,
-        isEdit: false,
-      })),
+      question: conversation.question.map((q, index) => {
+        const isEdit = isEditValue(q);
+        const v = isEdit ? q.substring(2, q.length - 2) : q;
+        return {
+          index: conversation.instruction.length + index,
+          value: v,
+          isEdit: isEdit,
+        };
+      }),
       description: conversation.description,
-      instructions: conversation.instructions.map((q, index) => ({
-        index,
-        value: q,
-        isEdit: false,
-      })),
+      instruction: conversation.instruction.map((q, index) => {
+        const isEdit = isEditValue(q);
+        const v = isEdit ? q.substring(2, q.length - 2) : q;
+        return {
+          index,
+          value: v,
+          isEdit: isEdit,
+        };
+      }),
       path: conversation.path,
     };
+    const isDone = !isEditState(currentConversation);
     return [
       {
         ...state,
         currentConversation,
-        response: "...",
+        response: isDone ? "Loading..." : "Waiting...",
       },
-      [fetchModelResponse, currentConversation],
+      isDone && [fetchModelResponse, currentConversation],
+    ];
+  };
+  const SaveAndGoMenu: Action<Model, MouseEvent> = (state: Model) => {
+    if (!state.currentConversation) {
+      return state;
+    }
+    const isDoneEditing = !isEditState(state.currentConversation);
+    if (isDoneEditing) {
+      const conversationToSaveIndex = state.conversations.findIndex((x) => x.name === state.currentConversation!.name);
+      const conversationToSave = state.conversations[conversationToSaveIndex];
+      const updatedConversation = {
+        ...conversationToSave,
+        question: state.currentConversation.question.map((x) => x.value),
+        instruction: state.currentConversation.instruction.map((x) => x.value),
+      };
+      const copiedConversations = [...state.conversations];
+      copiedConversations[conversationToSaveIndex] = updatedConversation;
+      return [
+        {
+          ...state,
+          conversations: copiedConversations,
+          currentConversation: undefined,
+          response: "",
+        },
+        abortResponse,
+        [storeConversation, updatedConversation],
+      ];
+    }
+    return [
+      {
+        ...state,
+        currentConversation: undefined,
+      },
+      abortResponse,
     ];
   };
   const GoMenu: Action<Model, MouseEvent> = (state: Model) => [
@@ -145,14 +162,11 @@ function main() {
     ...state,
     response: value,
   });
-  const AbortResponse: Action<Model, MouseEvent> = (state: Model) => [
-    state,
-    abortResponse,
-  ];
+  const AbortResponse: Action<Model, MouseEvent> = (state: Model) => [state, abortResponse];
   const RegenerateResponse: Action<Model, MouseEvent> = (state) => [
     {
       ...state,
-      response: "...",
+      response: "Loading...",
     },
     abortResponse,
     [fetchModelResponse, state.currentConversation],
@@ -161,39 +175,63 @@ function main() {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const questionToUpdateIndex = state.currentConversation.question.findIndex(
-      (x) => x.index === index
-    );
-    const questionToToggle =
-      state.currentConversation.question[questionToUpdateIndex];
-    const updated = { ...questionToToggle, isEdit: !questionToToggle?.isEdit };
+    const questionToUpdateIndex = state.currentConversation.question.findIndex((x) => x.index === index);
+    const questionToToggle = state.currentConversation.question[questionToUpdateIndex];
+    const updated = {
+      ...questionToToggle,
+      isEdit: !questionToToggle?.isEdit,
+    };
     const copied = [...state.currentConversation.question];
     copied[questionToUpdateIndex] = updated;
+    const updatedCurrentConversation = {
+      ...state.currentConversation,
+      question: copied,
+    };
+    const isDone = !isEditState(updatedCurrentConversation);
+    if (isDone) {
+      return [
+        {
+          ...state,
+          currentConversation: updatedCurrentConversation,
+          response: "Loading...",
+        },
+        abortResponse,
+        [fetchModelResponse, updatedCurrentConversation],
+      ];
+    }
     return {
       ...state,
-      currentConversation: {
-        ...state.currentConversation,
-        question: copied,
-      },
+      currentConversation: updatedCurrentConversation,
     };
   };
-  const ToggleEditInstructions = (state: Model, index: number) => {
+  const ToggleEditInstruction = (state: Model, index: number) => {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const toUpdateIndex = state.currentConversation.instructions.findIndex(
-      (x) => x.index === index
-    );
-    const toToggle = state.currentConversation.instructions[toUpdateIndex];
+    const toUpdateIndex = state.currentConversation.instruction.findIndex((x) => x.index === index);
+    const toToggle = state.currentConversation.instruction[toUpdateIndex];
     const updated = { ...toToggle, isEdit: !toToggle?.isEdit };
-    const copied = [...state.currentConversation.instructions];
+    const copied = [...state.currentConversation.instruction];
     copied[toUpdateIndex] = updated;
+    const updatedCurrentConversation = {
+      ...state.currentConversation,
+      instruction: copied,
+    };
+    const isDone = !isEditState(updatedCurrentConversation);
+    if (isDone) {
+      return [
+        {
+          ...state,
+          currentConversation: updatedCurrentConversation,
+          response: "Loading...",
+        },
+        abortResponse,
+        [fetchModelResponse, updatedCurrentConversation],
+      ];
+    }
     return {
       ...state,
-      currentConversation: {
-        ...state.currentConversation,
-        instructions: copied,
-      },
+      currentConversation: updatedCurrentConversation,
     };
   };
   const AddNewQuestion = (state: Model, index: number) => {
@@ -201,10 +239,7 @@ function main() {
       return { ...state };
     }
     const copied = [...state.currentConversation.question];
-    const indexes = [
-      ...copied.map((x) => x.index),
-      ...state.currentConversation.instructions.map((x) => x.index),
-    ];
+    const indexes = [...copied.map((x) => x.index), ...state.currentConversation.instruction.map((x) => x.index)];
     const newInstruction = {
       value: "",
       isEdit: true,
@@ -239,11 +274,8 @@ function main() {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const copied = [...state.currentConversation.instructions];
-    const indexes = [
-      ...copied.map((x) => x.index),
-      ...state.currentConversation.question.map((x) => x.index),
-    ];
+    const copied = [...state.currentConversation.instruction];
+    const indexes = [...copied.map((x) => x.index), ...state.currentConversation.question.map((x) => x.index)];
     const newInstruction = {
       value: "",
       isEdit: true,
@@ -255,7 +287,7 @@ function main() {
       ...state,
       currentConversation: {
         ...state.currentConversation,
-        instructions: copied,
+        instruction: copied,
       },
     };
   };
@@ -263,27 +295,22 @@ function main() {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const copied = [...state.currentConversation.instructions];
+    const copied = [...state.currentConversation.instruction];
     const deleteIndex = copied.findIndex((x) => x.index === index);
     copied.splice(deleteIndex, 1);
     return {
       ...state,
       currentConversation: {
         ...state.currentConversation,
-        instructions: copied,
+        instruction: copied,
       },
     };
   };
-  const SetQuestion = (
-    state: Model,
-    { value, index }: { value: string; index: number }
-  ) => {
+  const SetQuestion = (state: Model, { value, index }: { value: string; index: number }) => {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const questionToUpdateIndex = state.currentConversation.question.findIndex(
-      (x) => x.index === index
-    );
+    const questionToUpdateIndex = state.currentConversation.question.findIndex((x) => x.index === index);
     const updated = {
       ...state.currentConversation.question[questionToUpdateIndex],
       value: value,
@@ -298,53 +325,35 @@ function main() {
       },
     };
   };
-  const SetInstructions = (
-    state: Model,
-    { value, index }: { value: string; index: number }
-  ) => {
+  const SetInstruction = (state: Model, { value, index }: { value: string; index: number }) => {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const toUpdateIndex = state.currentConversation.instructions.findIndex(
-      (x) => x.index === index
-    );
+    const toUpdateIndex = state.currentConversation.instruction.findIndex((x) => x.index === index);
     const updated = {
-      ...state.currentConversation.instructions[toUpdateIndex],
+      ...state.currentConversation.instruction[toUpdateIndex],
       value: value,
     };
-    const copied = [...state.currentConversation.instructions];
+    const copied = [...state.currentConversation.instruction];
     copied[toUpdateIndex] = updated;
     return {
       ...state,
       currentConversation: {
         ...state.currentConversation,
-        instructions: copied,
+        instruction: copied,
       },
     };
   };
-
-  const CopyInstructions = (state: Model) => [
-    state,
-    [CopyInstructionToClipboard, state.currentConversation],
-  ];
-  const CopyQuestions = (state: Model) => [
-    state,
-    [CopyQuestionToClipboard, state.currentConversation],
-  ];
-  const CopyResponse = (state: Model) => [
-    state,
-    [CopyResponseToClipboard, state.response],
-  ];
+  const CopyInstruction = (state: Model) => [state, [CopyInstructionToClipboard, state.currentConversation]];
+  const CopyQuestions = (state: Model) => [state, [CopyQuestionToClipboard, state.currentConversation]];
+  const CopyResponse = (state: Model) => [state, [CopyResponseToClipboard, state.response]];
 
   const editTextView = (
     isEdit: boolean,
     value: string,
     index: number,
-    ToggleAction: (state: Model, index: number) => Dispatchable<Model, any>,
-    SetValue: (
-      state: Model,
-      { value, index }: { value: string; index: number }
-    ) => Model,
+    ToggleAction: (state: Model, index: number) => any,
+    SetValue: (state: Model, { value, index }: { value: string; index: number }) => Model,
     AddAction: (state: Model, index: number) => Dispatchable<Model, any>,
     DeleteAction: (state: Model, index: number) => Dispatchable<Model, any>,
     showDelete: boolean
@@ -443,23 +452,23 @@ function main() {
             currentConversation.question.length > 1
           )
         );
-        const instructionView = currentConversation.instructions.flatMap(
-          (instruction) =>
-            editTextView(
-              instruction.isEdit,
-              instruction.value,
-              instruction.index,
-              ToggleEditInstructions,
-              SetInstructions,
-              AddNewInstruction,
-              DeleteInstruction,
-              currentConversation.instructions.length > 1
-            )
+        const instructionView = currentConversation.instruction.flatMap((instruction) =>
+          editTextView(
+            instruction.isEdit,
+            instruction.value,
+            instruction.index,
+            ToggleEditInstruction,
+            SetInstruction,
+            AddNewInstruction,
+            DeleteInstruction,
+            currentConversation.instruction.length > 1
+          )
         );
         return h("div", { style: { width: "100%" } }, [
           h("button", { class: "menu", innerHTML: menuIcon, onclick: GoMenu }),
+          h("button", { class: "save", innerHTML: saveIcon, onclick: SaveAndGoMenu }),
           h("div", { class: "container" }, [
-            delimiter("Instructions", CopyInstructions),
+            delimiter("Instruction", CopyInstruction),
             ...instructionView,
             delimiter("Question", CopyQuestions),
             ...questionView,
@@ -470,12 +479,7 @@ function main() {
       }
       return h("div", { class: "container" }, [
         h("table", { class: ["u-full-width", "prompts"] }, [
-          h("thead", {}, [
-            h("tr", {}, [
-              h("th", {}, text("Name")),
-              h("th", {}, text("Description")),
-            ]),
-          ]),
+          h("thead", {}, [h("tr", {}, [h("th", {}, text("Name")), h("th", {}, text("Description"))])]),
           h(
             "tbody",
             {},
@@ -492,6 +496,14 @@ function main() {
 
     node: appElement,
   });
+}
+
+function isEditState(currentConversation: CurrentConversation) {
+  return currentConversation.instruction.some((x) => x.isEdit) || currentConversation.question.some((x) => x.isEdit);
+}
+
+function isEditValue(value: string) {
+  return value.startsWith("{{") && value.endsWith("}}");
 }
 
 function toHtml(value: string) {

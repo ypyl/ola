@@ -155,6 +155,11 @@ button.menu {
   top: 2rem;
   left: 2rem;
 }
+button.save {
+  position: absolute;
+  top: 5rem;
+  left: 2rem;
+}
 
 table.prompts tbody tr:hover {
   background-color: #F1F1F1;
