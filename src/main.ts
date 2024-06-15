@@ -115,7 +115,7 @@ function main() {
       {
         ...state,
         currentConversation,
-        response: isDone ? "Loading..." : "Waiting...",
+        response: isDone ? "Generating..." : "Waiting...",
       },
       isDone && [fetchModelResponse, currentConversation],
     ];
@@ -166,7 +166,7 @@ function main() {
   const RegenerateResponse: Action<Model, MouseEvent> = (state) => [
     {
       ...state,
-      response: "Loading...",
+      response: "Generating...",
     },
     abortResponse,
     [fetchModelResponse, state.currentConversation],
@@ -193,7 +193,7 @@ function main() {
         {
           ...state,
           currentConversation: updatedCurrentConversation,
-          response: "Loading...",
+          response: "Generating...",
         },
         abortResponse,
         [fetchModelResponse, updatedCurrentConversation],
@@ -223,7 +223,7 @@ function main() {
         {
           ...state,
           currentConversation: updatedCurrentConversation,
-          response: "Loading...",
+          response: "Generating...",
         },
         abortResponse,
         [fetchModelResponse, updatedCurrentConversation],

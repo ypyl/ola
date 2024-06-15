@@ -3,7 +3,7 @@ import ollama from "ollama/browser";
 
 const model = "llama3";
 
-export async function* generateHtml(prompt, system) {
+export async function* generateHtml(prompt: string, system: string) {
   try {
     const response = await ollama.generate({
       model: model,
@@ -22,6 +22,8 @@ export async function* generateHtml(prompt, system) {
     if (error.name === "AbortError") {
       return;
     }
+    console.error(error);
+    yield `Error: ${error}`;
   }
 }
 
