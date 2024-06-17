@@ -1,4 +1,4 @@
-import { Conversation, readConversations, updateConversation } from "./api/fs";
+import { Conversation, isFile, readConversations, readFileContent, updateConversation } from "./api/fs";
 import "./normalize.css";
 import "./skeleton.css";
 import "./style.css";
@@ -53,10 +53,23 @@ function main() {
     await updateConversation(conversation);
   };
 
+  const prepareQuestionPrompt = async (editableString: EditableString[]) => {
+    const result = await Promise.all(editableString.map(async (x) => {
+      if (await isFile(x.value)) {
+        const fileContent = await readFileContent(x.value);
+        return fileContent;
+      }
+      return x.value
+    }));
+    return result.join(" ");
+  }
+
   const fetchModelResponse = async (dispatch: Dispatch<Model>, conversation: CurrentConversation) => {
+    const quesiton =  await prepareQuestionPrompt(conversation.question);
+    const instruction = await prepareQuestionPrompt(conversation.instruction);
     for await (const chunk of generateHtml(
-      conversation.question.map((x) => x.value).join(" "),
-      conversation.instruction.map((x) => x.value).join(" ")
+      quesiton,
+      instruction
     )) {
       requestAnimationFrame(() => dispatch(SetResponse, chunk));
     }
