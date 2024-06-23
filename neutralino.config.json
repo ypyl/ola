@@ -10,7 +10,8 @@
     "app.*",
     "os.*",
     "filesystem.*",
-    "clipboard.*"
+    "clipboard.*",
+    "events.*"
   ],
   "modes": {
     "window": {

@@ -7,6 +7,7 @@ import { init, clipboard } from "@neutralinojs/lib";
 import { h, text, app, ElementVNode, Dispatch, Dispatchable, MaybeEffect, Action } from "hyperapp";
 import { addIcon, cancelIcon, copyIcon, deleteIcon, editIcon, menuIcon, regenerateIcon, saveIcon } from "./svg";
 import { abort, generateHtml } from "./api/ollama.api";
+import { fetchAndExtractArticle, isValidUrl } from "./api/web";
 
 init();
 
@@ -54,23 +55,27 @@ function main() {
   };
 
   const prepareQuestionPrompt = async (editableString: EditableString[]) => {
-    const result = await Promise.all(editableString.map(async (x) => {
-      if (await isFile(x.value)) {
-        const fileContent = await readFileContent(x.value);
-        return fileContent;
-      }
-      return x.value
-    }));
+    const result = await Promise.all(
+      editableString.map(async (x) => {
+        if (isValidUrl(x.value)) {
+          const article = await fetchAndExtractArticle(x.value);
+          if (!article) return 'Article is not available.';
+          return `Title: ${article.title}\nContent: ${article.content}`;
+        }
+        if (await isFile(x.value)) {
+          const fileContent = await readFileContent(x.value);
+          return fileContent;
+        }
+        return x.value;
+      })
+    );
     return result.join(" ");
-  }
+  };
 
   const fetchModelResponse = async (dispatch: Dispatch<Model>, conversation: CurrentConversation) => {
-    const quesiton =  await prepareQuestionPrompt(conversation.question);
+    const quesiton = await prepareQuestionPrompt(conversation.question);
     const instruction = await prepareQuestionPrompt(conversation.instruction);
-    for await (const chunk of generateHtml(
-      quesiton,
-      instruction
-    )) {
+    for await (const chunk of generateHtml(quesiton, instruction)) {
       requestAnimationFrame(() => dispatch(SetResponse, chunk));
     }
   };
@@ -498,7 +503,7 @@ function main() {
             {},
             conversations.map((conversation) => {
               return h("tr", { onclick: [SelectPrompt, conversation] }, [
-                h("td", {}, text(conversation.question)),
+                h("td", {}, text(conversation.name)),
                 h("td", {}, text(conversation.description)),
               ]);
             })
@@ -521,9 +526,4 @@ function isEditValue(value: string) {
 
 function toHtml(value: string) {
   return value.replace(/\n+/g, "<br />");
-}
-
-function log(value) {
-  console.log(value);
-  return value;
 }
