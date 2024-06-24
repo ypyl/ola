@@ -5,7 +5,18 @@ import "./style.css";
 import * as marked from "marked";
 import { init, clipboard } from "@neutralinojs/lib";
 import { h, text, app, ElementVNode, Dispatch, Dispatchable, MaybeEffect, Action } from "hyperapp";
-import { addIcon, cancelIcon, copyIcon, deleteIcon, editIcon, menuIcon, regenerateIcon, saveIcon } from "./svg";
+import {
+  addIcon,
+  cancelIcon,
+  copyIcon,
+  deleteIcon,
+  editIcon,
+  instructionIcon,
+  menuIcon,
+  questionIcon,
+  regenerateIcon,
+  saveIcon,
+} from "./svg";
 import { abort, generateHtml } from "./api/ollama.api";
 import { fetchAndExtractArticle, isValidUrl } from "./api/web";
 
@@ -30,11 +41,24 @@ type CurrentConversation = {
   path: string;
 };
 
+type ModelResponse = {
+  value: string;
+  instruction: string;
+  question: string;
+};
+
+enum ModelStatus {
+  Idle,
+  Generating,
+  Waiting,
+}
+
 type Model = {
   conversations: Conversation[];
   route: Route;
   currentConversation: CurrentConversation | undefined;
-  response: string;
+  response: ModelResponse | undefined;
+  status: ModelStatus;
 };
 
 main();
@@ -59,7 +83,7 @@ function main() {
       editableString.map(async (x) => {
         if (isValidUrl(x.value)) {
           const article = await fetchAndExtractArticle(x.value);
-          if (!article) return 'Article is not available.';
+          if (!article) return "Article is not available.";
           return `Title: ${article.title}\nContent: ${article.content}`;
         }
         if (await isFile(x.value)) {
@@ -73,10 +97,11 @@ function main() {
   };
 
   const fetchModelResponse = async (dispatch: Dispatch<Model>, conversation: CurrentConversation) => {
-    const quesiton = await prepareQuestionPrompt(conversation.question);
+    const question = await prepareQuestionPrompt(conversation.question);
     const instruction = await prepareQuestionPrompt(conversation.instruction);
-    for await (const chunk of generateHtml(quesiton, instruction)) {
-      requestAnimationFrame(() => dispatch(SetResponse, chunk));
+    requestAnimationFrame(() => dispatch(SetResponseInstructionAndQuestion, { question, instruction }));
+    for await (const chunk of generateHtml(question, instruction)) {
+      requestAnimationFrame(() => dispatch(SetResponseValue, chunk));
     }
   };
   const abortResponse = () => {
@@ -96,8 +121,14 @@ function main() {
     const instruction = conversation.question.map((x) => x.value).join("\n");
     await clipboard.writeText(instruction);
   };
-  const CopyResponseToClipboard = async (_dispatch: Dispatch<Model>, response: string) => {
-    await clipboard.writeText(response);
+  const CopyResponseToClipboard = async (_dispatch: Dispatch<Model>, response: ModelResponse) => {
+    await clipboard.writeText(response?.value ?? "No response from model");
+  };
+  const CopyUsedInstructionToClipboard = async (_dispatch: Dispatch<Model>, response: ModelResponse) => {
+    await clipboard.writeText(response?.instruction ?? "No response from model");
+  };
+  const CopyUsedQuestionToClipboard = async (_dispatch: Dispatch<Model>, response: ModelResponse) => {
+    await clipboard.writeText(response?.question ?? "No response from model");
   };
 
   const GetConversations: (state: Model, conversations: Conversation[]) => Model = (state, conversations) => ({
@@ -133,7 +164,7 @@ function main() {
       {
         ...state,
         currentConversation,
-        response: isDone ? "Generating..." : "Waiting...",
+        status: isDone ? ModelStatus.Generating : ModelStatus.Waiting,
       },
       isDone && [fetchModelResponse, currentConversation],
     ];
@@ -158,7 +189,8 @@ function main() {
           ...state,
           conversations: copiedConversations,
           currentConversation: undefined,
-          response: "",
+          response: undefined,
+          status: ModelStatus.Idle,
         },
         abortResponse,
         [storeConversation, updatedConversation],
@@ -168,6 +200,8 @@ function main() {
       {
         ...state,
         currentConversation: undefined,
+        response: undefined,
+        status: ModelStatus.Idle,
       },
       abortResponse,
     ];
@@ -176,15 +210,34 @@ function main() {
     { ...state, currentConversation: undefined },
     abortResponse,
   ];
-  const SetResponse = (state: Model, value: string) => ({
-    ...state,
-    response: value,
-  });
+  const SetResponseInstructionAndQuestion = (state: Model, data: { instruction: string; question: string }) => {
+    return {
+      ...state,
+      response: {
+        instruction: data.instruction,
+        question: data.question,
+        value: "",
+      },
+    };
+  };
+  const SetResponseValue = (state: Model, value: string) => {
+    if (!state.response) {
+      return state;
+    }
+    const updatedResponse = {
+      ...state.response,
+      value,
+    };
+    return {
+      ...state,
+      response: updatedResponse,
+    };
+  };
   const AbortResponse: Action<Model, MouseEvent> = (state: Model) => [state, abortResponse];
   const RegenerateResponse: Action<Model, MouseEvent> = (state) => [
     {
       ...state,
-      response: "Generating...",
+      status: ModelStatus.Generating,
     },
     abortResponse,
     [fetchModelResponse, state.currentConversation],
@@ -211,7 +264,8 @@ function main() {
         {
           ...state,
           currentConversation: updatedCurrentConversation,
-          response: "Generating...",
+          response: undefined,
+          status: ModelStatus.Generating,
         },
         abortResponse,
         [fetchModelResponse, updatedCurrentConversation],
@@ -241,7 +295,8 @@ function main() {
         {
           ...state,
           currentConversation: updatedCurrentConversation,
-          response: "Generating...",
+          response: undefined,
+          status: ModelStatus.Generating,
         },
         abortResponse,
         [fetchModelResponse, updatedCurrentConversation],
@@ -365,6 +420,8 @@ function main() {
   const CopyInstruction = (state: Model) => [state, [CopyInstructionToClipboard, state.currentConversation]];
   const CopyQuestions = (state: Model) => [state, [CopyQuestionToClipboard, state.currentConversation]];
   const CopyResponse = (state: Model) => [state, [CopyResponseToClipboard, state.response]];
+  const CopyUsedInstruction = (state: Model) => [state, [CopyUsedInstructionToClipboard, state.response]];
+  const CopyUsedQuestion = (state: Model) => [state, [CopyUsedQuestionToClipboard, state.response]];
 
   const editTextView = (
     isEdit: boolean,
@@ -416,8 +473,8 @@ function main() {
     ] as ElementVNode<Model>[];
   };
 
-  const responseView = (value: string) => {
-    const htmlValue = marked.parse(value);
+  const responseView = (modelResponse: ModelResponse) => {
+    const htmlValue = marked.parse(modelResponse.value);
     return [
       h("div", { class: ["row", "edit"] }, [
         h("div", {
@@ -435,15 +492,16 @@ function main() {
     ] as ElementVNode<Model>[];
   };
 
-  const delimiter = (title: string, CopyValue) => {
+  const delimiter = (title: string, buttons) => {
     return h(
       "div",
       { class: "row" },
-      h("div", { class: ["column", "delimiter"] }, [
-        h("div", {}, text(title)),
-        h("button", { innerHTML: copyIcon, onclick: CopyValue }),
-      ])
+      h("div", { class: ["column", "delimiter"] }, [h("div", {}, text(title)), ...copyButtons(buttons)])
     ) as ElementVNode<Model>;
+  };
+
+  const copyButtons = (copyButtons: { icon: string; action: Action<Model, MouseEvent> }[]) => {
+    return copyButtons.map((x) => h("button", { innerHTML: x.icon, onclick: x.action })) as ElementVNode<Model>[];
   };
 
   app<Model>({
@@ -452,7 +510,8 @@ function main() {
         conversations: [],
         route: Route.Menu,
         currentConversation: undefined,
-        response: "",
+        response: undefined,
+        status: ModelStatus.Idle,
       },
       fetchPrompts,
     ],
@@ -482,16 +541,23 @@ function main() {
             currentConversation.instruction.length > 1
           )
         );
+        const responseViewValue = response ? responseView(response) : [];
         return h("div", { style: { width: "100%" } }, [
           h("button", { class: "menu", innerHTML: menuIcon, onclick: GoMenu }),
           h("button", { class: "save", innerHTML: saveIcon, onclick: SaveAndGoMenu }),
           h("div", { class: "container" }, [
-            delimiter("Instruction", CopyInstruction),
+            delimiter("Instruction", [
+              { icon: instructionIcon, action: CopyUsedInstruction },
+              { icon: copyIcon, action: CopyInstruction },
+            ]),
             ...instructionView,
-            delimiter("Question", CopyQuestions),
+            delimiter("Question", [
+              { icon: questionIcon, action: CopyUsedQuestion },
+              { icon: copyIcon, action: CopyQuestions },
+            ]),
             ...questionView,
-            delimiter("LLM answer", CopyResponse),
-            ...responseView(response),
+            response && delimiter("LLM answer", [{ icon: copyIcon, action: CopyResponse }]),
+            ...responseViewValue,
           ]),
         ]);
       }

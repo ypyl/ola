@@ -1,50 +1,21 @@
-import { ArticleData, extractFromHtml } from '@extractus/article-extractor'
-import { NeutralinoCurl } from "./curl";
+import {
+  ArticleData,
+  extractFromHtml,
+  setSanitizeHtmlOptions,
+  getSanitizeHtmlOptions,
+} from "@extractus/article-extractor";
+import { os } from "@neutralinojs/lib";
 
-class EnhancedNeutralinoCurl extends NeutralinoCurl {
-  constructor(opt = {}) {
-    super(opt);
-  }
-
-  async fetchAndExtractText(url: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      let aggregatedData = '';
-
-      const handleCurlData = (e: any) => {
-        // Aggregate data from curlData events
-        aggregatedData += e.detail;
-      };
-
-      const handleCurlEnd = (e: any) => {
-        // Remove the event listeners after receiving the end event
-        document.removeEventListener("curlData", handleCurlData);
-        document.removeEventListener("curlEnd", handleCurlEnd);
-
-        // Resolve the promise with the aggregated data
-        resolve(aggregatedData);
-      };
-
-      // Add the event listeners
-      document.addEventListener("curlData", handleCurlData);
-      document.addEventListener("curlEnd", handleCurlEnd);
-
-      // Perform the get request
-      this.get(url).catch((error) => {
-        // Remove the event listeners in case of an error
-        document.removeEventListener("curlData", handleCurlData);
-        document.removeEventListener("curlEnd", handleCurlEnd);
-        reject(error);
-      });
-    });
-  }
-}
-
-const CURL = new EnhancedNeutralinoCurl();
+const options = getSanitizeHtmlOptions();
+setSanitizeHtmlOptions({ ...options, parseStyleAttributes: false });
 
 export async function fetchAndExtractArticle(url: string): Promise<ArticleData | null> {
   try {
-    const response = await CURL.fetchAndExtractText(url);
-    const html = response;
+    let cmd = await os.execCommand(NL_CWD + `/curl/curl ${url}`);
+    if (cmd.exitCode > 0) {
+      throw new Error(cmd.stdErr);
+    }
+    const html = cmd.stdOut;
     const article = await extractFromHtml(html, url);
     return article;
   } catch (error) {
