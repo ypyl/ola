@@ -17,7 +17,7 @@ import {
   regenerateIcon,
   saveIcon,
 } from "./svg";
-import { abort, generateHtml } from "./api/ollama.api";
+import { abort, generateHtml, model } from "./api/ollama.api";
 import { fetchAndExtractArticle, isValidUrl } from "./api/web";
 
 init();
@@ -459,15 +459,17 @@ function main() {
         h("div", { class: "controls" }, [
           h("button", {
             innerHTML: isEdit ? saveIcon : editIcon,
+            title: isEdit ? "Save" : "Edit",
             onclick: [ToggleAction, index],
           }),
           showDelete
             ? h("button", {
                 innerHTML: deleteIcon,
+                title: "Delete",
                 onclick: [DeleteAction, index],
               })
             : null,
-          h("button", { innerHTML: addIcon, onclick: [AddAction, index] }),
+          h("button", { innerHTML: addIcon, title: "Add", onclick: [AddAction, index] }),
         ]),
       ]),
     ] as ElementVNode<Model>[];
@@ -484,9 +486,10 @@ function main() {
         h("div", { class: "controls" }, [
           h("button", {
             innerHTML: regenerateIcon,
+            title: "Regenerate Response",
             onclick: RegenerateResponse,
           }),
-          h("button", { innerHTML: cancelIcon, onclick: AbortResponse }),
+          h("button", { innerHTML: cancelIcon, title: "Abort Response", onclick: AbortResponse }),
         ]),
       ]),
     ] as ElementVNode<Model>[];
@@ -500,8 +503,8 @@ function main() {
     ) as ElementVNode<Model>;
   };
 
-  const copyButtons = (copyButtons: { icon: string; action: Action<Model, MouseEvent> }[]) => {
-    return copyButtons.map((x) => h("button", { innerHTML: x.icon, onclick: x.action })) as ElementVNode<Model>[];
+  const copyButtons = (copyButtons: { icon: string; action: Action<Model, MouseEvent>; title: string }[]) => {
+    return copyButtons.map((x) => h("button", { innerHTML: x.icon, title: x.title, onclick: x.action })) as ElementVNode<Model>[];
   };
 
   app<Model>({
@@ -547,16 +550,16 @@ function main() {
           h("button", { class: "save", innerHTML: saveIcon, onclick: SaveAndGoMenu }),
           h("div", { class: "container" }, [
             delimiter("Instruction", [
-              { icon: instructionIcon, action: CopyUsedInstruction },
-              { icon: copyIcon, action: CopyInstruction },
+              { icon: instructionIcon, action: CopyUsedInstruction, title: "Copy Used Instruction" },
+              { icon: copyIcon, action: CopyInstruction, title: "Copy Instruction" },
             ]),
             ...instructionView,
             delimiter("Question", [
-              { icon: questionIcon, action: CopyUsedQuestion },
-              { icon: copyIcon, action: CopyQuestions },
+              { icon: questionIcon, action: CopyUsedQuestion, title: "Copy Used Question" },
+              { icon: copyIcon, action: CopyQuestions, title: "Copy Questions" },
             ]),
             ...questionView,
-            response && delimiter("LLM answer", [{ icon: copyIcon, action: CopyResponse }]),
+            response && delimiter(model, [{ icon: copyIcon, action: CopyResponse, title: "Copy Response" }]),
             ...responseViewValue,
           ]),
         ]);

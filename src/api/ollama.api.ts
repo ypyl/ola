@@ -1,7 +1,6 @@
-
 import ollama from "ollama/browser";
 
-const model = "llama3";
+export const model = "llama3";
 
 export async function* generateHtml(prompt: string, system: string) {
   try {
