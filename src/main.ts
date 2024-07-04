@@ -12,6 +12,7 @@ import {
   deleteIcon,
   editIcon,
   instructionIcon,
+  loadingIcon,
   menuIcon,
   questionIcon,
   regenerateIcon,
@@ -390,13 +391,16 @@ function main() {
     ] as ElementVNode<Model>[];
   };
 
-  const responseView = (modelResponse: ModelResponse) => {
+  const responseView = (modelResponse: ModelResponse, status: ModelStatus) => {
     const htmlValue = marked.parse(modelResponse.value);
+    const isWaitingModel = htmlValue === "" && status === ModelStatus.Generating;
+    const titleValue = isWaitingModel ? "Waiting model response" : null;
     return [
       h("div", { class: ["row", "edit"] }, [
         h("div", {
           class: "content",
-          innerHTML: htmlValue,
+          title: titleValue,
+          innerHTML: isWaitingModel ? loadingIcon : htmlValue,
         }),
         h("div", { class: "controls" }, [
           h("button", {
@@ -435,7 +439,7 @@ function main() {
       },
       fetchPrompts,
     ],
-    view: ({ conversations, currentConversation, response }) => {
+    view: ({ conversations, currentConversation, response, status }) => {
       if (currentConversation) {
         const questionView = currentConversation.question.flatMap((question) =>
           editTextView(
@@ -461,7 +465,7 @@ function main() {
             currentConversation.instruction.length > 1
           )
         );
-        const responseViewValue = response ? responseView(response) : [];
+        const responseViewValue = response ? responseView(response, status) : [];
         return h("div", { style: { width: "100%" } }, [
           h("button", { class: "menu", innerHTML: menuIcon, onclick: GoMenu }),
           h("button", { class: "save", innerHTML: saveIcon, onclick: SaveAndGoMenu }),
