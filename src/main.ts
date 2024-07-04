@@ -78,7 +78,7 @@ function main() {
     await updateConversation(conversation);
   };
 
-  const prepareQuestionPrompt = async (editableString: EditableString[]) => {
+  const preparePrompt = async (editableString: EditableString[]) => {
     const result = await Promise.all(
       editableString.map(async (x) => {
         if (isValidUrl(x.value)) {
@@ -87,8 +87,7 @@ function main() {
           return `Title: ${article.title}\nContent: ${article.content}`;
         }
         if (await isFile(x.value)) {
-          const fileContent = await readFileContent(x.value);
-          return fileContent;
+          return await readFileContent(x.value);
         }
         return x.value;
       })
@@ -97,39 +96,27 @@ function main() {
   };
 
   const fetchModelResponse = async (dispatch: Dispatch<Model>, conversation: CurrentConversation) => {
-    const question = await prepareQuestionPrompt(conversation.question);
-    const instruction = await prepareQuestionPrompt(conversation.instruction);
+    const question = await preparePrompt(conversation.question);
+    const instruction = await preparePrompt(conversation.instruction);
     requestAnimationFrame(() => dispatch(SetResponseInstructionAndQuestion, { question, instruction }));
     for await (const chunk of generateHtml(question, instruction)) {
       requestAnimationFrame(() => dispatch(SetResponseValue, chunk));
     }
   };
+
   const abortResponse = () => {
     abort();
   };
-  const CopyInstructionToClipboard = async (_dispatch: Dispatch<Model>, conversation?: CurrentConversation) => {
-    if (!conversation) {
-      return;
-    }
-    const instruction = conversation.instruction.map((x) => x.value).join("\n");
-    await clipboard.writeText(instruction);
-  };
-  const CopyQuestionToClipboard = async (_dispatch: Dispatch<Model>, conversation?: CurrentConversation) => {
-    if (!conversation) {
-      return;
-    }
-    const instruction = conversation.question.map((x) => x.value).join("\n");
-    await clipboard.writeText(instruction);
-  };
-  const CopyResponseToClipboard = async (_dispatch: Dispatch<Model>, response: ModelResponse) => {
-    await clipboard.writeText(response?.value ?? "No response from model");
-  };
-  const CopyUsedInstructionToClipboard = async (_dispatch: Dispatch<Model>, response: ModelResponse) => {
-    await clipboard.writeText(response?.instruction ?? "No response from model");
-  };
-  const CopyUsedQuestionToClipboard = async (_dispatch: Dispatch<Model>, response: ModelResponse) => {
-    await clipboard.writeText(response?.question ?? "No response from model");
-  };
+  const CopyInstructionToClipboard = async (_dispatch: Dispatch<Model>, conversation?: CurrentConversation) =>
+    CopyToClipboard(conversation?.instruction.map((x) => x.value).join("\n"));
+  const CopyQuestionToClipboard = async (_dispatch: Dispatch<Model>, conversation?: CurrentConversation) =>
+    CopyToClipboard(conversation?.question.map((x) => x.value).join("\n"));
+  const CopyResponseToClipboard = (_dispatch: Dispatch<Model>, response: ModelResponse) =>
+    CopyToClipboard(response?.value);
+  const CopyUsedInstructionToClipboard = (_dispatch: Dispatch<Model>, response: ModelResponse) =>
+    CopyToClipboard(response?.instruction);
+  const CopyUsedQuestionToClipboard = (_dispatch: Dispatch<Model>, response: ModelResponse) =>
+    CopyToClipboard(response?.question);
 
   const GetConversations: (state: Model, conversations: Conversation[]) => Model = (state, conversations) => ({
     ...state,
@@ -242,21 +229,20 @@ function main() {
     abortResponse,
     [fetchModelResponse, state.currentConversation],
   ];
-  const ToggleEditQuestion = (state: Model, index: number) => {
+
+  const toggleEdit = (state: Model, index: number, type: "question" | "instruction") => {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const questionToUpdateIndex = state.currentConversation.question.findIndex((x) => x.index === index);
-    const questionToToggle = state.currentConversation.question[questionToUpdateIndex];
-    const updated = {
-      ...questionToToggle,
-      isEdit: !questionToToggle?.isEdit,
-    };
-    const copied = [...state.currentConversation.question];
-    copied[questionToUpdateIndex] = updated;
+    const items = state.currentConversation[type];
+    const itemToUpdateIndex = items.findIndex((x) => x.index === index);
+    const itemToToggle = items[itemToUpdateIndex];
+    const updated = { ...itemToToggle, isEdit: !itemToToggle?.isEdit };
+    const copied = [...items];
+    copied[itemToUpdateIndex] = updated;
     const updatedCurrentConversation = {
       ...state.currentConversation,
-      question: copied,
+      [type]: copied,
     };
     const isDone = !isEditState(updatedCurrentConversation);
     if (isDone) {
@@ -276,147 +262,76 @@ function main() {
       currentConversation: updatedCurrentConversation,
     };
   };
-  const ToggleEditInstruction = (state: Model, index: number) => {
+  const ToggleEditQuestion = (state: Model, index: number) => toggleEdit(state, index, "question");
+  const ToggleEditInstruction = (state: Model, index: number) => toggleEdit(state, index, "instruction");
+
+  const addNewItem = (state: Model, index: number, type: 'question' | 'instruction') => {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const toUpdateIndex = state.currentConversation.instruction.findIndex((x) => x.index === index);
-    const toToggle = state.currentConversation.instruction[toUpdateIndex];
-    const updated = { ...toToggle, isEdit: !toToggle?.isEdit };
-    const copied = [...state.currentConversation.instruction];
-    copied[toUpdateIndex] = updated;
-    const updatedCurrentConversation = {
-      ...state.currentConversation,
-      instruction: copied,
-    };
-    const isDone = !isEditState(updatedCurrentConversation);
-    if (isDone) {
-      return [
-        {
-          ...state,
-          currentConversation: updatedCurrentConversation,
-          response: undefined,
-          status: ModelStatus.Generating,
-        },
-        abortResponse,
-        [fetchModelResponse, updatedCurrentConversation],
-      ];
-    }
-    return {
-      ...state,
-      currentConversation: updatedCurrentConversation,
-    };
-  };
-  const AddNewQuestion = (state: Model, index: number) => {
-    if (!state.currentConversation) {
-      return { ...state };
-    }
-    const copied = [...state.currentConversation.question];
-    const indexes = [...copied.map((x) => x.index), ...state.currentConversation.instruction.map((x) => x.index)];
-    const newInstruction = {
+    const copied = [...state.currentConversation[type]];
+    const indexes = [...copied.map((x) => x.index), ...state.currentConversation[type === 'question' ? 'instruction' : 'question'].map((x) => x.index)];
+    const newItem = {
       value: "",
       isEdit: true,
       index: Math.max(...indexes) + 1,
     };
     const inserAfter = copied.findIndex((x) => x.index === index);
-    copied.splice(inserAfter + 1, 0, newInstruction);
+    copied.splice(inserAfter + 1, 0, newItem);
     return {
       ...state,
       currentConversation: {
         ...state.currentConversation,
-        question: copied,
+        [type]: copied,
       },
     };
   };
-  const DeleteQuestion = (state: Model, index: number) => {
+  const AddNewQuestion = (state: Model, index: number) => addNewItem(state, index, 'question');
+  const AddNewInstruction = (state: Model, index: number) => addNewItem(state, index, 'instruction');
+
+  const deleteItem = (state: Model, index: number, type: 'question' | 'instruction') => {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const copied = [...state.currentConversation.question];
+    const copied = [...state.currentConversation[type]];
     const deleteIndex = copied.findIndex((x) => x.index === index);
     copied.splice(deleteIndex, 1);
     return {
       ...state,
       currentConversation: {
         ...state.currentConversation,
-        question: copied,
+        [type]: copied,
       },
     };
   };
-  const AddNewInstruction = (state: Model, index: number) => {
+  const DeleteQuestion = (state: Model, index: number) => deleteItem(state, index, 'question');
+  const DeleteInstruction = (state: Model, index: number) => deleteItem(state, index, 'instruction');
+
+  const setValue = (
+    state: Model,
+    { value, index }: { value: string; index: number },
+    type: "question" | "instruction"
+  ) => {
     if (!state.currentConversation) {
       return { ...state };
     }
-    const copied = [...state.currentConversation.instruction];
-    const indexes = [...copied.map((x) => x.index), ...state.currentConversation.question.map((x) => x.index)];
-    const newInstruction = {
-      value: "",
-      isEdit: true,
-      index: Math.max(...indexes) + 1,
-    };
-    const inserAfter = copied.findIndex((x) => x.index === index);
-    copied.splice(inserAfter + 1, 0, newInstruction);
+    const items = state.currentConversation[type];
+    const itemToUpdateIndex = items.findIndex((x) => x.index === index);
+    const updated = { ...items[itemToUpdateIndex], value: value };
+    const copied = [...items];
+    copied[itemToUpdateIndex] = updated;
     return {
       ...state,
       currentConversation: {
         ...state.currentConversation,
-        instruction: copied,
+        [type]: copied,
       },
     };
   };
-  const DeleteInstruction = (state: Model, index: number) => {
-    if (!state.currentConversation) {
-      return { ...state };
-    }
-    const copied = [...state.currentConversation.instruction];
-    const deleteIndex = copied.findIndex((x) => x.index === index);
-    copied.splice(deleteIndex, 1);
-    return {
-      ...state,
-      currentConversation: {
-        ...state.currentConversation,
-        instruction: copied,
-      },
-    };
-  };
-  const SetQuestion = (state: Model, { value, index }: { value: string; index: number }) => {
-    if (!state.currentConversation) {
-      return { ...state };
-    }
-    const questionToUpdateIndex = state.currentConversation.question.findIndex((x) => x.index === index);
-    const updated = {
-      ...state.currentConversation.question[questionToUpdateIndex],
-      value: value,
-    };
-    const copied = [...state.currentConversation.question];
-    copied[questionToUpdateIndex] = updated;
-    return {
-      ...state,
-      currentConversation: {
-        ...state.currentConversation,
-        question: copied,
-      },
-    };
-  };
-  const SetInstruction = (state: Model, { value, index }: { value: string; index: number }) => {
-    if (!state.currentConversation) {
-      return { ...state };
-    }
-    const toUpdateIndex = state.currentConversation.instruction.findIndex((x) => x.index === index);
-    const updated = {
-      ...state.currentConversation.instruction[toUpdateIndex],
-      value: value,
-    };
-    const copied = [...state.currentConversation.instruction];
-    copied[toUpdateIndex] = updated;
-    return {
-      ...state,
-      currentConversation: {
-        ...state.currentConversation,
-        instruction: copied,
-      },
-    };
-  };
+  const SetQuestion = (state: Model, { value, index }: { value: string; index: number }) =>
+    setValue(state, { value, index }, "question");
+  const SetInstruction = (state: Model, { value, index }: { value: string; index: number }) =>
+    setValue(state, { value, index }, "instruction");
   const CopyInstruction = (state: Model) => [state, [CopyInstructionToClipboard, state.currentConversation]];
   const CopyQuestions = (state: Model) => [state, [CopyQuestionToClipboard, state.currentConversation]];
   const CopyResponse = (state: Model) => [state, [CopyResponseToClipboard, state.response]];
@@ -504,7 +419,9 @@ function main() {
   };
 
   const copyButtons = (copyButtons: { icon: string; action: Action<Model, MouseEvent>; title: string }[]) => {
-    return copyButtons.map((x) => h("button", { innerHTML: x.icon, title: x.title, onclick: x.action })) as ElementVNode<Model>[];
+    return copyButtons.map((x) =>
+      h("button", { innerHTML: x.icon, title: x.title, onclick: x.action })
+    ) as ElementVNode<Model>[];
   };
 
   app<Model>({
@@ -583,6 +500,10 @@ function main() {
 
     node: appElement,
   });
+}
+
+async function CopyToClipboard(value: string | undefined) {
+  await clipboard.writeText(value ?? "No value");
 }
 
 function isEditState(currentConversation: CurrentConversation) {
