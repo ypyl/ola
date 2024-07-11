@@ -105,9 +105,13 @@ button:focus-visible {
 
 .controls {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   margin-left: auto;
-  gap: 5px;
+}
+
+.edit {
+  display: flex;
+  flex-direction: row;
 }
 
 .header {
@@ -121,7 +125,6 @@ hr {
 }
 
 .header > div:last-child {
-  border-bottom: 1px #e1e1e1 solid;
   width: 100%;
   display: flex;
   justify-content: right;
@@ -134,13 +137,8 @@ hr {
 
 .content {
   margin-bottom: 10px;
-  border-bottom: 1px #e1e1e1 solid;
-  border-left: 1px #e1e1e1 solid;
-  border-right: 1px #e1e1e1 solid;
-  padding-left: 5px;
-  padding-right: 5px;
-  padding-bottom: 5px;
-  padding-top: 5px;
+  /* padding-bottom: 5px;
+  padding-top: 5px; */
 }
 
 .content > *:last-child {
@@ -157,6 +155,11 @@ button.menu {
   top: 2rem;
   left: 2rem;
 }
+button.save {
+  position: absolute;
+  top: 5rem;
+  left: 2rem;
+}
 
 table.prompts tbody tr:hover {
   background-color: #F1F1F1;
@@ -166,4 +169,14 @@ table.prompts tbody tr:hover {
 table.prompts td, table.prompts th {
   padding-left: 5px;
   padding-right: 5px;
+}
+
+.delimiter {
+  border-bottom: 1px #e1e1e1 solid;
+  display: flex;
+  flex-direction: row;
+}
+
+.delimiter > button:last-child {
+  margin-left: auto;
 }

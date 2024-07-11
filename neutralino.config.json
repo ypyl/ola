@@ -9,7 +9,9 @@
   "nativeAllowList": [
     "app.*",
     "os.*",
-    "filesystem.*"
+    "filesystem.*",
+    "clipboard.*",
+    "events.*"
   ],
   "modes": {
     "window": {
@@ -20,7 +22,7 @@
       "minHeight": 200,
       "enableInspector": true,
       "borderless": false,
-      "icon": "/build/icon.png"
+      "icon": "/public/icon.png"
     }
   },
   "cli": {

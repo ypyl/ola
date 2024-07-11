@@ -1,65 +1,81 @@
-import { filesystem } from "@neutralinojs/lib";
-import { Prompt } from "../state/prompt.state";
+import { filesystem, app } from "@neutralinojs/lib";
 
-export async function readPrompts() {
+export type Conversation = {
+  name: string;
+  question: string[];
+  description: string;
+  instruction: string[];
+  path: string;
+};
+
+export async function readConversations(): Promise<Conversation[]> {
+  const appConfig = await app.getConfig();
+  const appFolder: string = appConfig.modes.window.title;
   let entries;
   try {
-    entries = await filesystem.readDirectory("data");
+    entries = await filesystem.readDirectory(appFolder);
   } catch (ex) {
     if (ex.code !== "NE_FS_NOPATHE") {
       throw ex;
     }
-    await filesystem.createDirectory("data");
-    await updatePrompt({
-      prompt: "Why sky is blue?",
+    await filesystem.createDirectory(appFolder);
+    await updateConversation({
+      name: "why-sky-is-blue",
+      question: ["Why sky is blue?"],
       description: "Explain the color of the sky.",
-      system: "Use one sentence for answer.",
-      path: "./data/why-sky-is-blue.md",
+      instruction: ["You are an expert in physics.", "Use one sentence for answer."],
+      path: `./${appFolder}/why-sky-is-blue.md`,
     });
-    entries = await filesystem.readDirectory("data");
+    entries = await filesystem.readDirectory(appFolder);
   }
-  const prompts: Prompt[] = [];
-  for (const item of entries) {
-    prompts.push(await extractPrompt(item.path));
+  const conversaions: Conversation[] = [];
+  for (const item of entries.filter((item) => item.path.endsWith(".md"))) {
+    conversaions.push(await extractConversation(item.path));
   }
-  return prompts;
+  return conversaions;
 }
 
-const promptTitle = "# Prompt";
-const systemTitle = "# System";
+const nameTitle = "# Name";
+const questionTitle = "# Question";
+const instructionTitle = "# Instruction";
 const descriptionTitle = "# Description";
 
-const titles = [promptTitle, systemTitle, descriptionTitle];
+const titles = [nameTitle, questionTitle, instructionTitle, descriptionTitle];
 
-async function extractPrompt(path: string): Promise<Prompt> {
+async function extractConversation(path: string): Promise<Conversation> {
   const lines = await readLines(path);
   const index = indexPromptFile(lines);
-  let prompt = "";
+  let name = "";
+  let question: string[] = [];
   let description = "";
-  let system = "";
+  let instruction: string[] = [];
   for (let i = 0; i < index.length; i++) {
     const startIndex = index[i];
     const endIndex =
       startIndex === index[index.length - 1] ? lines.length - 1 : index[i + 1];
-    if (lines[startIndex] === promptTitle) {
-      prompt = extractOneItem(lines, startIndex, endIndex);
+    if (lines[startIndex] === nameTitle) {
+      name = extractString(lines, startIndex, endIndex);
+    }
+    if (lines[startIndex] === questionTitle) {
+      question = extractStringArray(lines, startIndex, endIndex);
     }
     if (lines[startIndex] === descriptionTitle) {
-      description = extractOneItem(lines, startIndex, endIndex);
+      description = extractString(lines, startIndex, endIndex);
     }
-    if (lines[startIndex] === systemTitle) {
-      system = extractOneItem(lines, startIndex, endIndex);
+    if (lines[startIndex] === instructionTitle) {
+      instruction = extractStringArray(lines, startIndex, endIndex);
     }
   }
   return {
-    prompt: prompt,
+    name: name ?? path,
+    question,
     description,
-    system: system,
+    instruction,
     path,
   };
 }
 
-function extractOneItem(lines: string[], start: number, end: number): string {
+function extractString(lines: string[], start: number, end: number): string {
   let result = "";
   for (let i = start + 1; i < end; i++) {
     result += lines[i] + "\n";
@@ -67,23 +83,49 @@ function extractOneItem(lines: string[], start: number, end: number): string {
   return result.trim();
 }
 
-export async function updatePrompt(prompt: Prompt) {
-  const promptString = createPromptString(prompt);
-  await filesystem.writeFile(prompt.path, promptString);
+function extractStringArray(lines: string[], start: number, end: number): string[] {
+  const result: string[] = [];
+  let current = ""
+  for (let i = start + 1; i < end; i++) {
+    if (lines[i].trim() === "") {
+      if (current !== "") {
+        result.push(current.trim());
+        current = "";
+      }
+      continue;
+    }
+    current += lines[i] + "\n";
+  }
+  if (current) {
+    result.push(current.trim());
+  }
+  return result;
 }
 
-function createPromptString(prompt: Prompt): string {
-  return `# System
 
-${prompt.system}
+export async function updateConversation(conversation: Conversation) {
+  const promptString = createConversationString(conversation);
+  await filesystem.writeFile(conversation.path, promptString);
+}
 
-# Prompt
+function createConversationString(conversation: Conversation): string {
+  const questionString = conversation.question.join("\n\n");
+  const instructionString = conversation.instruction.join("\n\n");
+  return `# Name
 
-${prompt.prompt}
+${conversation.name}
 
 # Description
 
-${prompt.description}
+${conversation.description}
+
+# Instruction
+
+${instructionString}
+
+# Question
+
+${questionString}
 `;
 }
 
@@ -105,4 +147,47 @@ function indexPromptFile(lines: string[]): number[] {
     i += 1;
   }
   return index;
+}
+
+export async function isFile(input: string): Promise<boolean> {
+  // Define a regular expression for basic path patterns
+  const pathPattern = /^(\/|\.\/|\.\.\/|[a-zA-Z]:\\|\\\\)/;
+
+  // Check if the input matches the path pattern
+  if (pathPattern.test(input)) {
+      try {
+          // Attempt to get stats for the path
+          const stats = await filesystem.getStats(input);
+          if (stats.isFile) {
+            return true;
+          }
+          return false;
+      } catch (e) {
+          // If NE_FS_NOPATHE is thrown, it's likely not a valid path
+          if (e.code === 'NE_FS_NOPATHE') {
+              console.error('Path does not exist:', input);
+              return false;
+          }
+          // Re-throw other errors for debugging purposes
+          throw e;
+      }
+  }
+
+  return false;
+}
+
+export async function readFileContent(filePath: string): Promise<string> {
+  try {
+      // Read the file content
+      const data = await filesystem.readFile(filePath);
+      return data;
+  } catch (e) {
+      // Handle file read errors
+      if (e.code === 'NE_FS_FILRDER') {
+          console.error('File read error:', filePath);
+          throw new Error(`Unable to read file: ${filePath}`);
+      }
+      // Re-throw other errors for debugging purposes
+      throw e;
+  }
 }

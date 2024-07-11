@@ -1,15 +1,13 @@
-import * as marked from "marked";
 import ollama from "ollama/browser";
-import { $prompt } from "../state/prompt.state";
 
-const model = "llama3";
+export const model = "llama3";
 
-export async function* generateHtml() {
+export async function* generateHtml(prompt: string, system: string) {
   try {
     const response = await ollama.generate({
       model: model,
-      prompt: $prompt.get().prompt,
-      system: $prompt.get().system,
+      prompt: prompt,
+      system: system,
       stream: true,
     });
 
@@ -17,13 +15,14 @@ export async function* generateHtml() {
 
     for await (const chunk of response) {
       result = result + chunk.response;
-      const html = marked.parse(result);
-      yield html;
+      yield result;
     }
   } catch (error) {
     if (error.name === "AbortError") {
       return;
     }
+    console.error(error);
+    yield `Error: ${error}`;
   }
 }
 
