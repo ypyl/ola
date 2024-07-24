@@ -1,8 +1,10 @@
 import ollama from "ollama/browser";
 
-export const model = "llama3";
-
-export async function* generateHtml(prompt: string, system: string) {
+export async function* generateHtml(model: string, prompt: string, system: string) {
+  const allModels = await list();
+  if (!allModels.find(x => x == model)) {
+    await pull(model);
+  }
   try {
     const response = await ollama.generate({
       model: model,
@@ -28,4 +30,13 @@ export async function* generateHtml(prompt: string, system: string) {
 
 export function abort() {
   ollama.abort();
+}
+
+async function list() {
+  const response = await ollama.list();
+  return response.models.map(x => x.name);
+}
+
+async function pull(model: string) {
+  await ollama.pull({ model });
 }

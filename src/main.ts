@@ -18,7 +18,7 @@ import {
   regenerateIcon,
   saveIcon,
 } from "./svg";
-import { abort, generateHtml, model } from "./api/ollama.api";
+import { abort, generateHtml } from "./api/ollama.api";
 import { fetchAndExtractArticle, isValidUrl } from "./api/web";
 
 init();
@@ -35,6 +35,7 @@ type EditableString = {
 };
 
 type CurrentConversation = {
+  model: string;
   name: string;
   question: EditableString[];
   description: string;
@@ -100,7 +101,7 @@ function main() {
     const question = await preparePrompt(conversation.question);
     const instruction = await preparePrompt(conversation.instruction);
     requestAnimationFrame(() => dispatch(SetResponseInstructionAndQuestion, { question, instruction }));
-    for await (const chunk of generateHtml(question, instruction)) {
+    for await (const chunk of generateHtml(conversation.model, question, instruction)) {
       requestAnimationFrame(() => dispatch(SetResponseValue, chunk));
     }
   };
@@ -126,6 +127,7 @@ function main() {
   const SelectPrompt: Action<Model, Conversation> = (state: Model, conversation: Conversation) => {
     const currentConversation = {
       name: conversation.name,
+      model: conversation.model,
       question: conversation.question.map((q, index) => {
         const isEdit = isEditValue(q);
         const v = isEdit ? q.substring(2, q.length - 2) : q;
@@ -467,8 +469,8 @@ function main() {
         );
         const responseViewValue = response ? responseView(response, status) : [];
         return h("div", { style: { width: "100%" } }, [
-          h("button", { class: "menu", innerHTML: menuIcon, onclick: GoMenu }),
-          h("button", { class: "save", innerHTML: saveIcon, onclick: SaveAndGoMenu }),
+          h("button", { class: "menu", innerHTML: menuIcon, title: "Select conversation view", onclick: GoMenu }),
+          h("button", { class: "save", innerHTML: saveIcon, title: "Save conversation", onclick: SaveAndGoMenu }),
           h("div", { class: "container" }, [
             delimiter("Instruction", [
               { icon: instructionIcon, action: CopyUsedInstruction, title: "Copy Used Instruction" },
@@ -480,7 +482,7 @@ function main() {
               { icon: copyIcon, action: CopyQuestions, title: "Copy Questions" },
             ]),
             ...questionView,
-            response && delimiter(model, [{ icon: copyIcon, action: CopyResponse, title: "Copy Response" }]),
+            response && delimiter(currentConversation.model, [{ icon: copyIcon, action: CopyResponse, title: "Copy Response" }]),
             ...responseViewValue,
           ]),
         ]);

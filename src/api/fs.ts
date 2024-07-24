@@ -1,6 +1,7 @@
 import { filesystem, app } from "@neutralinojs/lib";
 
 export type Conversation = {
+  model: string;
   name: string;
   question: string[];
   description: string;
@@ -20,6 +21,7 @@ export async function readConversations(): Promise<Conversation[]> {
     }
     await filesystem.createDirectory(appFolder);
     await updateConversation({
+      model: "llama3.1",
       name: "why-sky-is-blue",
       question: ["Why sky is blue?"],
       description: "Explain the color of the sky.",
@@ -36,16 +38,18 @@ export async function readConversations(): Promise<Conversation[]> {
 }
 
 const nameTitle = "# Name";
+const modelTitle = "# Model";
 const questionTitle = "# Question";
 const instructionTitle = "# Instruction";
 const descriptionTitle = "# Description";
 
-const titles = [nameTitle, questionTitle, instructionTitle, descriptionTitle];
+const titles = [modelTitle, nameTitle, questionTitle, instructionTitle, descriptionTitle];
 
 async function extractConversation(path: string): Promise<Conversation> {
   const lines = await readLines(path);
   const index = indexPromptFile(lines);
   let name = "";
+  let model = "llama3.1";
   let question: string[] = [];
   let description = "";
   let instruction: string[] = [];
@@ -55,6 +59,9 @@ async function extractConversation(path: string): Promise<Conversation> {
       startIndex === index[index.length - 1] ? lines.length - 1 : index[i + 1];
     if (lines[startIndex] === nameTitle) {
       name = extractString(lines, startIndex, endIndex);
+    }
+    if (lines[startIndex] === modelTitle) {
+      model = extractString(lines, startIndex, endIndex);
     }
     if (lines[startIndex] === questionTitle) {
       question = extractStringArray(lines, startIndex, endIndex);
@@ -67,6 +74,7 @@ async function extractConversation(path: string): Promise<Conversation> {
     }
   }
   return {
+    model: model ?? "llama3.1",
     name: name ?? path,
     question,
     description,
@@ -114,6 +122,10 @@ function createConversationString(conversation: Conversation): string {
   return `# Name
 
 ${conversation.name}
+
+# Model
+
+${conversation.model}
 
 # Description
 
